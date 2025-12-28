@@ -4,8 +4,11 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
   images: {
-    domains: ['images.unsplash.com', 'a.espncdn.com', 'assets.nhle.com'],
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
       {
         protocol: 'https',
         hostname: 'a.espncdn.com',
@@ -22,9 +25,6 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: false,
-  },
-  eslint: {
-    ignoreDuringBuilds: false,
   },
 }
 
