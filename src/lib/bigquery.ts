@@ -30,14 +30,6 @@ export function getBigQueryConfig(projectId: string, keyEnvVar: string) {
   }
 }
 
-// Initialize BigQuery client
-const bigquery = new BigQuery(
-  getBigQueryConfig(
-    process.env.BIGQUERY_PROJECT_ID || 'nfl25-469415',
-    'GOOGLE_APPLICATION_CREDENTIALS'
-  )
-)
-
 // Database table references
 export const TABLES = {
   MATCHUPS_2024: 'nfl25-469415.nfl_info.Matchups_2024',
@@ -51,12 +43,28 @@ export const TABLES = {
   TEAM_MARKETS: 'nfl25-469415.odds.team_markets',
 } as const
 
+// Lazy initialization of BigQuery client to avoid errors during build time
+let bigqueryInstance: BigQuery | null = null
+
+function getBigQueryClient(): BigQuery {
+  if (!bigqueryInstance) {
+    bigqueryInstance = new BigQuery(
+      getBigQueryConfig(
+        process.env.BIGQUERY_PROJECT_ID || 'nfl25-469415',
+        'GOOGLE_APPLICATION_CREDENTIALS'
+      )
+    )
+  }
+  return bigqueryInstance
+}
+
 // Generic query function
 export async function queryBigQuery<T = any>(
   query: string,
   options?: { maxResults?: number; timeoutMs?: number }
 ): Promise<T[]> {
   try {
+    const bigquery = getBigQueryClient()
     const [rows] = await bigquery.query({
       query,
       ...options,
