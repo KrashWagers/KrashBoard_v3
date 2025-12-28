@@ -34,8 +34,6 @@ interface PlayerProp {
   streak: number
 }
 
-import { getBigQueryConfig } from '@/lib/bigquery'
-
 const bigquery = new BigQuery(
   getBigQueryConfig(
     process.env.GOOGLE_CLOUD_PROJECT_ID || '',
