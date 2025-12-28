@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SportsSelector } from "@/components/sports-selector"
+import { ErrorBoundary } from "@/components/error-boundary"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -81,7 +82,9 @@ export default function RootLayout({
                 </div>
               </div>
               <div className="flex-1 p-6">
-                {children}
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
               </div>
             </main>
           </SidebarProvider>

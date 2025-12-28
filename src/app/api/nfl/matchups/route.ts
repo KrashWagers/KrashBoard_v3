@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNFLMatchups } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
+import { matchupsFilterSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const season = parseInt(searchParams.get('season') || '2024')
-    const week = searchParams.get('week') ? parseInt(searchParams.get('week')!) : undefined
+    
+    // Validate and parse query parameters
+    const validated = matchupsFilterSchema.parse({
+      season: searchParams.get('season') ? parseInt(searchParams.get('season')!) : 2024,
+      week: searchParams.get('week') ? parseInt(searchParams.get('week')!) : undefined,
+    })
 
-    const matchups = await getNFLMatchups(season, week)
+    const matchups = await getNFLMatchups(validated.season, validated.week)
 
     return NextResponse.json({
       success: true,
@@ -15,12 +21,12 @@ export async function GET(request: NextRequest) {
       count: matchups.length
     })
   } catch (error) {
-    console.error('Error fetching NFL matchups:', error)
+    logger.error('Failed to fetch NFL matchups', error)
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch matchups',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: 'An error occurred while fetching matchups'
       },
       { status: 500 }
     )

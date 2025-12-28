@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNFLPlayers } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
+import { nflPlayersFilterSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const position = searchParams.get('position')
-    const team = searchParams.get('team')
-    const search = searchParams.get('search')
+    
+    // Validate query parameters
+    const validated = nflPlayersFilterSchema.parse({
+      position: searchParams.get('position') || undefined,
+      team: searchParams.get('team') || undefined,
+      search: searchParams.get('search') || undefined,
+    })
 
-    const filters = {
-      position: position || undefined,
-      team: team || undefined,
-      search: search || undefined,
-    }
-
-    const players = await getNFLPlayers(filters)
+    const players = await getNFLPlayers(validated)
 
     return NextResponse.json({
       success: true,
@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
       count: players.length
     })
   } catch (error) {
-    console.error('Error fetching NFL players:', error)
+    logger.error('Failed to fetch NFL players', error)
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch players',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: 'An error occurred while fetching players'
       },
       { status: 500 }
     )

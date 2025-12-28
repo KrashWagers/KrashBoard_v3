@@ -1,4 +1,5 @@
 import { BigQuery } from '@google-cloud/bigquery'
+import { logger } from './logger'
 
 /**
  * Helper function to get BigQuery configuration
@@ -71,24 +72,37 @@ export async function queryBigQuery<T = any>(
     })
     return rows as T[]
   } catch (error) {
-    console.error('BigQuery error:', error)
+    logger.error('BigQuery query failed', error)
     throw new Error(`BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 // NFL-specific query functions
 export async function getNFLMatchups(season: number = 2024, week?: number) {
+  // Validate inputs
+  if (season < 2000 || season > 2100) {
+    throw new Error('Invalid season parameter')
+  }
+  
   const table = season === 2024 ? TABLES.MATCHUPS_2024 : TABLES.MATCHUPS_2025
-  const weekFilter = week ? `AND week = ${week}` : ''
   
-  const query = `
-    SELECT *
-    FROM \`${table}\`
-    WHERE 1=1 ${weekFilter}
-    ORDER BY week, game_date
-  `
+  let query = `SELECT * FROM \`${table}\` WHERE 1=1`
+  const params: Record<string, any> = {}
   
-  return queryBigQuery(query)
+  if (week !== undefined) {
+    if (week < 1 || week > 25) {
+      throw new Error('Invalid week parameter')
+    }
+    query += ' AND week = @week'
+    params.week = week
+  }
+  
+  query += ' ORDER BY week, game_date'
+  
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ query, params })
+  return rows as any[]
 }
 
 export async function getNFLPlayers(filters?: {
@@ -96,23 +110,40 @@ export async function getNFLPlayers(filters?: {
   team?: string
   search?: string
 }) {
-  let whereClause = 'WHERE 1=1'
-  const params: any[] = []
+  const whereConditions: string[] = []
+  const params: Record<string, any> = {}
   
   if (filters?.position) {
-    whereClause += ` AND position = @position`
-    params.push({ name: 'position', value: filters.position })
+    // Validate position
+    if (typeof filters.position !== 'string' || filters.position.length > 10) {
+      throw new Error('Invalid position parameter')
+    }
+    whereConditions.push('position = @position')
+    params.position = filters.position
   }
   
   if (filters?.team) {
-    whereClause += ` AND team = @team`
-    params.push({ name: 'team', value: filters.team })
+    // Validate team
+    if (typeof filters.team !== 'string' || filters.team.length > 10) {
+      throw new Error('Invalid team parameter')
+    }
+    whereConditions.push('team = @team')
+    params.team = filters.team
   }
   
   if (filters?.search) {
-    whereClause += ` AND (player_name LIKE @search OR team LIKE @search)`
-    params.push({ name: 'search', value: `%${filters.search}%` })
+    // Validate search - sanitize input
+    const searchTerm = filters.search.trim()
+    if (searchTerm.length > 100) {
+      throw new Error('Search term too long')
+    }
+    whereConditions.push('(player_name LIKE @search OR team LIKE @search)')
+    params.search = `%${searchTerm}%`
   }
+  
+  const whereClause = whereConditions.length > 0 
+    ? `WHERE ${whereConditions.join(' AND ')}`
+    : ''
   
   const query = `
     SELECT *
@@ -121,7 +152,14 @@ export async function getNFLPlayers(filters?: {
     ORDER BY player_name
   `
   
-  return queryBigQuery(query, { maxResults: 1000 })
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ 
+    query, 
+    params,
+    maxResults: 1000 
+  })
+  return rows as any[]
 }
 
 export async function getPlayerGamelogs(
@@ -129,18 +167,41 @@ export async function getPlayerGamelogs(
   season: number = 2024,
   week?: number
 ) {
-  const weekFilter = week ? `AND week = ${week}` : ''
+  // Validate inputs
+  if (!playerId || typeof playerId !== 'string' || playerId.length > 100) {
+    throw new Error('Invalid playerId parameter')
+  }
+  if (season < 2000 || season > 2100) {
+    throw new Error('Invalid season parameter')
+  }
   
-  const query = `
+  // Build query with parameterized values
+  let query = `
     SELECT *
     FROM \`${TABLES.PLAYER_GAMELOGS}\`
-    WHERE player_id = '${playerId}'
-    AND season = ${season}
-    ${weekFilter}
-    ORDER BY week DESC
+    WHERE player_id = @player_id
+    AND season = @season
   `
   
-  return queryBigQuery(query)
+  const params: Record<string, any> = {
+    player_id: playerId,
+    season: season
+  }
+  
+  if (week !== undefined) {
+    if (week < 1 || week > 25) {
+      throw new Error('Invalid week parameter')
+    }
+    query += ' AND week = @week'
+    params.week = week
+  }
+  
+  query += ' ORDER BY week DESC'
+  
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ query, params })
+  return rows as any[]
 }
 
 export async function getPlayerProps(
@@ -151,23 +212,44 @@ export async function getPlayerProps(
     isActive?: boolean
   }
 ) {
-  let whereClause = 'WHERE 1=1'
+  const whereConditions: string[] = []
+  const params: Record<string, any> = {}
   
   if (filters?.playerId) {
-    whereClause += ` AND player_id = '${filters.playerId}'`
+    // Validate playerId
+    if (typeof filters.playerId !== 'string' || filters.playerId.length > 100) {
+      throw new Error('Invalid playerId parameter')
+    }
+    whereConditions.push('player_id = @player_id')
+    params.player_id = filters.playerId
   }
   
   if (filters?.gameId) {
-    whereClause += ` AND game_id = '${filters.gameId}'`
+    // Validate gameId
+    if (typeof filters.gameId !== 'string' || filters.gameId.length > 100) {
+      throw new Error('Invalid gameId parameter')
+    }
+    whereConditions.push('game_id = @game_id')
+    params.game_id = filters.gameId
   }
   
   if (filters?.propType) {
-    whereClause += ` AND prop_type = '${filters.propType}'`
+    // Validate propType
+    if (typeof filters.propType !== 'string' || filters.propType.length > 50) {
+      throw new Error('Invalid propType parameter')
+    }
+    whereConditions.push('prop_type = @prop_type')
+    params.prop_type = filters.propType
   }
   
   if (filters?.isActive !== undefined) {
-    whereClause += ` AND is_active = ${filters.isActive}`
+    whereConditions.push('is_active = @is_active')
+    params.is_active = filters.isActive
   }
+  
+  const whereClause = whereConditions.length > 0 
+    ? `WHERE ${whereConditions.join(' AND ')}`
+    : ''
   
   const query = `
     SELECT *
@@ -176,7 +258,10 @@ export async function getPlayerProps(
     ORDER BY last_updated DESC
   `
   
-  return queryBigQuery(query)
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ query, params })
+  return rows as any[]
 }
 
 export async function getTeamStats(
@@ -184,31 +269,61 @@ export async function getTeamStats(
   season: number = 2024,
   week?: number
 ) {
-  const weekFilter = week ? `AND week = ${week}` : ''
+  // Validate inputs
+  if (!team || typeof team !== 'string' || team.length > 10) {
+    throw new Error('Invalid team parameter')
+  }
+  if (season < 2000 || season > 2100) {
+    throw new Error('Invalid season parameter')
+  }
   
-  const query = `
+  let query = `
     SELECT *
     FROM \`${TABLES.TEAM_GAMELOGS}\`
-    WHERE team = '${team}'
-    AND season = ${season}
-    ${weekFilter}
-    ORDER BY week DESC
+    WHERE team = @team
+    AND season = @season
   `
   
-  return queryBigQuery(query)
+  const params: Record<string, any> = {
+    team: team,
+    season: season
+  }
+  
+  if (week !== undefined) {
+    if (week < 1 || week > 25) {
+      throw new Error('Invalid week parameter')
+    }
+    query += ' AND week = @week'
+    params.week = week
+  }
+  
+  query += ' ORDER BY week DESC'
+  
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ query, params })
+  return rows as any[]
 }
 
 export async function getDepthCharts(team?: string) {
-  const teamFilter = team ? `WHERE team = '${team}'` : ''
+  let query = 'SELECT * FROM `' + TABLES.DEPTH_CHARTS + '`'
+  const params: Record<string, any> = {}
   
-  const query = `
-    SELECT *
-    FROM \`${TABLES.DEPTH_CHARTS}\`
-    ${teamFilter}
-    ORDER BY team, position, depth
-  `
+  if (team) {
+    // Validate team
+    if (typeof team !== 'string' || team.length > 10) {
+      throw new Error('Invalid team parameter')
+    }
+    query += ' WHERE team = @team'
+    params.team = team
+  }
   
-  return queryBigQuery(query)
+  query += ' ORDER BY team, position, depth'
+  
+  // Use parameterized query
+  const bigquery = getBigQueryClient()
+  const [rows] = await bigquery.query({ query, params })
+  return rows as any[]
 }
 
 // Utility function to test BigQuery connection
@@ -218,7 +333,7 @@ export async function testBigQueryConnection(): Promise<boolean> {
     await queryBigQuery(query)
     return true
   } catch (error) {
-    console.error('BigQuery connection test failed:', error)
+    logger.error('BigQuery connection test failed', error)
     return false
   }
 }

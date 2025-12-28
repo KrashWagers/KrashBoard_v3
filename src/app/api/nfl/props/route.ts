@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 interface PlayerProp {
   event_id: string
@@ -125,15 +126,15 @@ export async function GET(request: NextRequest) {
     let allData = serverCache.get<PlayerProp[]>(CACHE_KEYS.PLAYER_PROPS)
     
     if (!allData) {
-      console.log('Cache miss - fetching from BigQuery...')
+      logger.debug('Cache miss - fetching from BigQuery')
       // First user after cache expiry fetches from BigQuery
       allData = await fetchPlayerPropsFromBigQuery()
       
       // Store in cache for 30 minutes
       serverCache.set(CACHE_KEYS.PLAYER_PROPS, allData, CACHE_TTL.PLAYER_PROPS)
-      console.log(`Cached ${allData.length} player props for 30 minutes`)
+      logger.debug(`Cached ${allData.length} player props for 30 minutes`)
     } else {
-      console.log('Cache hit - using cached data')
+      logger.debug('Cache hit - using cached data')
     }
 
     // Paginate the cached data
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching player props:', error)
+    logger.error('Failed to fetch player props', error)
     return NextResponse.json(
       { error: 'Failed to fetch player props data' },
       { status: 500 }

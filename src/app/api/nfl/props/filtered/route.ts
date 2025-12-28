@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { filteredPropsRequestSchema } from '@/lib/validations'
+import { logger } from '@/lib/logger'
 
 const bigquery = new BigQuery(
   getBigQueryConfig(
@@ -9,26 +11,43 @@ const bigquery = new BigQuery(
   )
 )
 
+// Safe ORDER BY field mapping - prevents SQL injection
+const ORDER_BY_FIELD_MAP: Record<string, string> = {
+  'commence_time_utc': 'commence_time_utc',
+  'bestOdds': 'price_american',
+  'impliedWinPct': 'implied_win_pct',
+  'streak': 'streak',
+  'hit2024': 'hit_2024',
+  'hit2025': 'hit_2025',
+  'hitL20': 'hit_L20',
+  'hitL15': 'hit_L15',
+  'hitL10': 'hit_L10',
+  'hitL5': 'hit_L5',
+} as const
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    
+    // Validate input with Zod schema
+    const validated = filteredPropsRequestSchema.parse(body)
     const { 
-      players = [], 
-      props = [], 
-      games = [], 
-      ou = [], 
-      altProps = false, 
-      sportsbooks = [],
-      page = 1,
-      sortField = 'commence_time_utc',
-      sortDirection = 'DESC'
-    } = body
+      players, 
+      props, 
+      games, 
+      ou, 
+      altProps, 
+      sportsbooks,
+      page,
+      sortField,
+      sortDirection
+    } = validated
 
     const limit = 100
     const offset = (page - 1) * limit
 
-    // Build WHERE conditions
-    const whereConditions = [
+    // Build WHERE conditions with parameterized queries
+    const whereConditions: string[] = [
       'kw_player_name IS NOT NULL',
       'prop_name IS NOT NULL',
       'O_U IS NOT NULL',
@@ -36,61 +55,92 @@ export async function POST(request: NextRequest) {
       'price_american IS NOT NULL'
     ]
 
-    if (players.length > 0) {
-      const playerList = players.map((p: string) => `'${p.replace(/'/g, "''")}'`).join(',')
-      whereConditions.push(`kw_player_name IN (${playerList})`)
+    // Build parameters object for BigQuery
+    const params: Record<string, any> = {}
+    let paramIndex = 0
+
+    // Handle players filter - use array parameter (BigQuery supports ARRAY<string>)
+    if (players.length > 0 && players.length <= 100) {
+      // Validate each player name (alphanumeric, spaces, hyphens, apostrophes only)
+      const validPlayers = players.filter(p => {
+        const sanitized = p.trim()
+        return /^[a-zA-Z0-9\s\-'.]+$/.test(sanitized) && sanitized.length > 0 && sanitized.length <= 100
+      })
+      if (validPlayers.length > 0) {
+        // BigQuery array parameter - pass as array
+        params[`players_array`] = validPlayers
+        whereConditions.push(`kw_player_name IN UNNEST(@players_array)`)
+      }
     }
 
-    if (props.length > 0) {
-      const propList = props.map((p: string) => `'${p.replace(/'/g, "''")}'`).join(',')
-      whereConditions.push(`prop_name IN (${propList})`)
+    // Handle props filter
+    if (props.length > 0 && props.length <= 100) {
+      const validProps = props.filter(p => {
+        const sanitized = p.trim()
+        return /^[a-zA-Z0-9\s\-'.]+$/.test(sanitized) && sanitized.length > 0 && sanitized.length <= 100
+      })
+      if (validProps.length > 0) {
+        params[`props_array`] = validProps
+        whereConditions.push(`prop_name IN UNNEST(@props_array)`)
+      }
     }
 
-    if (games.length > 0) {
-      const gameConditions = games.map((game: string) => {
-        const [awayTeam, homeTeam] = game.split(' @ ')
-        return `(away_team = '${awayTeam.replace(/'/g, "''")}' AND home_team = '${homeTeam.replace(/'/g, "''")}')`
-      }).join(' OR ')
-      whereConditions.push(`(${gameConditions})`)
+    // Handle games filter - validate format and use parameters
+    if (games.length > 0 && games.length <= 50) {
+      const gameConditions: string[] = []
+      games.forEach((game, idx) => {
+        const parts = game.split(' @ ')
+        if (parts.length === 2) {
+          const awayTeam = parts[0].trim()
+          const homeTeam = parts[1].trim()
+          // Validate team abbreviations (3 uppercase letters)
+          if (/^[A-Z]{2,4}$/.test(awayTeam) && /^[A-Z]{2,4}$/.test(homeTeam)) {
+            params[`away_${paramIndex}`] = awayTeam
+            params[`home_${paramIndex}`] = homeTeam
+            gameConditions.push(`(away_team = @away_${paramIndex} AND home_team = @home_${paramIndex})`)
+            paramIndex++
+          }
+        }
+      })
+      if (gameConditions.length > 0) {
+        whereConditions.push(`(${gameConditions.join(' OR ')})`)
+      }
     }
 
-    if (ou.length > 0) {
-      const ouList = ou.map((o: string) => `'${o}'`).join(',')
-      whereConditions.push(`O_U IN (${ouList})`)
+    // Handle OU filter - validate only 'Over' or 'Under'
+    if (ou.length > 0 && ou.length <= 10) {
+      const validOU = ou.filter(o => o === 'Over' || o === 'Under')
+      if (validOU.length > 0) {
+        params[`ou_array`] = validOU
+        whereConditions.push(`O_U IN UNNEST(@ou_array)`)
+      }
     }
 
+    // Handle altProps filter
     if (!altProps) {
       whereConditions.push('is_alternate = 0')
     }
 
-    if (sportsbooks.length > 0) {
-      const bookList = sportsbooks.map((b: string) => `'${b.replace(/'/g, "''")}'`).join(',')
-      whereConditions.push(`bookmaker IN (${bookList})`)
+    // Handle sportsbooks filter - validate bookmaker names
+    if (sportsbooks.length > 0 && sportsbooks.length <= 50) {
+      const validBooks = sportsbooks.filter(b => {
+        const sanitized = b.trim()
+        return /^[a-zA-Z0-9\s\-]+$/.test(sanitized) && sanitized.length > 0 && sanitized.length <= 50
+      })
+      if (validBooks.length > 0) {
+        params[`books_array`] = validBooks
+        whereConditions.push(`bookmaker IN UNNEST(@books_array)`)
+      }
     }
 
     const whereClause = whereConditions.join(' AND ')
 
-    // Build ORDER BY clause
-    let orderBy = 'commence_time_utc DESC'
-    if (sortField === 'bestOdds') {
-      orderBy = `price_american ${sortDirection}`
-    } else if (sortField === 'impliedWinPct') {
-      orderBy = `implied_win_pct ${sortDirection}`
-    } else if (sortField === 'streak') {
-      orderBy = `streak ${sortDirection}`
-    } else if (sortField.startsWith('hit')) {
-      const fieldMap: Record<string, string> = {
-        'hit2024': 'hit_2024',
-        'hit2025': 'hit_2025',
-        'hitL20': 'hit_L20',
-        'hitL15': 'hit_L15',
-        'hitL10': 'hit_L10',
-        'hitL5': 'hit_L5'
-      }
-      orderBy = `${fieldMap[sortField]} ${sortDirection}`
-    }
+    // Build ORDER BY clause - use whitelist to prevent SQL injection
+    const orderByField = ORDER_BY_FIELD_MAP[sortField] || 'commence_time_utc'
+    const safeSortDirection = sortDirection === 'ASC' ? 'ASC' : 'DESC'
+    const orderBy = `${orderByField} ${safeSortDirection}`
 
-    // Build the query
+    // Build the query with parameterized values
     const query = `
       SELECT 
         event_id,
@@ -150,19 +200,33 @@ export async function POST(request: NextRequest) {
       FROM \`nfl25-469415.odds.Player_Props\`
       WHERE ${whereClause}
       ORDER BY ${orderBy}
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT @limit OFFSET @offset
     `
 
-    const [rows] = await bigquery.query({ query })
+    // Add limit and offset to params
+    params.limit = limit
+    params.offset = offset
 
-    // Get total count for pagination
+    const [rows] = await bigquery.query({ 
+      query,
+      params 
+    })
+
+    // Get total count for pagination - reuse same params but without limit/offset
+    const countParams = { ...params }
+    delete countParams.limit
+    delete countParams.offset
+
     const countQuery = `
       SELECT COUNT(*) as total
       FROM \`nfl25-469415.odds.Player_Props\`
       WHERE ${whereClause}
     `
 
-    const [countRows] = await bigquery.query({ query: countQuery })
+    const [countRows] = await bigquery.query({ 
+      query: countQuery,
+      params: countParams 
+    })
     const total = countRows[0]?.total || 0
 
     return NextResponse.json({
@@ -177,9 +241,15 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error fetching filtered player props:', error)
+    // Log error without exposing details to client
+    logger.error('Failed to fetch filtered player props', error)
+
+    // Return generic error to client
     return NextResponse.json(
-      { error: 'Failed to fetch filtered player props data' },
+      { 
+        error: 'Failed to fetch filtered player props data',
+        success: false 
+      },
       { status: 500 }
     )
   }
