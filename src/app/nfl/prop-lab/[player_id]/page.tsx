@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { ArrowLeft, TrendingUp, TrendingDown, Target, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ReferenceLine } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ReferenceLine, Label } from 'recharts'
 
 // Types
 interface PlayerGamelog {
@@ -913,13 +913,14 @@ export default function PlayerPropDashboard() {
                       stroke="#ffc658" 
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      label={{ 
-                        value: `Line: ${lineValue || selectedProp?.line}`, 
-                        position: "topRight",
-                        fill: "#ffc658",
-                        fontSize: 12
-                      }}
-                    />
+                    >
+                      <Label 
+                        value={`Line: ${lineValue || selectedProp?.line}`}
+                        position="right"
+                        fill="#ffc658"
+                        fontSize={12}
+                      />
+                    </ReferenceLine>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
