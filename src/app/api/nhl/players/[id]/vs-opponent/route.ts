@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 const nhlBigQuery = new BigQuery(
   getBigQueryConfig(
@@ -40,7 +41,7 @@ export async function GET(
 
     return NextResponse.json({ data: rows, count: rows.length })
   } catch (error) {
-    console.error('Error fetching player vs opponent data:', error)
+    logger.error('Failed to fetch player vs opponent data', error)
     return NextResponse.json(
       { error: 'Failed to fetch player vs opponent data' },
       { status: 500 }

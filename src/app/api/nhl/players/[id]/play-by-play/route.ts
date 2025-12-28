@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 const nhlBigQuery = new BigQuery(
   getBigQueryConfig(
@@ -30,7 +31,7 @@ export async function GET(
     })
     
     const playerName = playerRows[0]?.player_name
-    console.log('Looking for player:', playerName)
+    logger.debug('Looking for player', { playerId: id, playerName })
     if (!playerName) {
       return NextResponse.json({ data: [], count: 0 })
     }
@@ -85,14 +86,20 @@ export async function GET(
     const [rows] = await nhlBigQuery.query(options)
 
     // Convert BigQuery date objects to strings
-    const formattedRows = rows.map((row: any) => ({
+    interface PlayByPlayRow {
+      Game_Date?: { value?: string } | string
+      [key: string]: unknown
+    }
+    const formattedRows = rows.map((row: PlayByPlayRow) => ({
       ...row,
-      Game_Date: row.Game_Date?.value || row.Game_Date
+      Game_Date: typeof row.Game_Date === 'object' && row.Game_Date?.value 
+        ? row.Game_Date.value 
+        : row.Game_Date
     }))
 
     return NextResponse.json({ data: formattedRows, count: formattedRows.length })
   } catch (error) {
-    console.error('Error fetching play by play data:', error)
+    logger.error('Failed to fetch play by play data', error)
     return NextResponse.json(
       { error: 'Failed to fetch play by play data' },
       { status: 500 }

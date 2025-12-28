@@ -268,7 +268,7 @@ export default function PlayerPropDashboard() {
   useEffect(() => {
     const fetchAvailableProps = async () => {
       try {
-        console.log('Fetching props for player:', playerId)
+        // Fetching props for player
         
         // Fetch all props data in batches
         let allProps: any[] = []
@@ -290,14 +290,14 @@ export default function PlayerPropDashboard() {
           if (page > 10) break
         }
         
-        console.log('Total props fetched:', allProps.length)
+        // Total props fetched
         
         // Filter props for this specific player
         const playerProps = allProps.filter((prop: any) => prop.kw_player_id === playerId)
-        console.log('Props for player:', playerProps.length)
+        // Props for player
         
         const uniqueProps = [...new Set(playerProps.map((prop: any) => prop.prop_name))]
-        console.log('Unique props:', uniqueProps)
+        // Unique props
         
         setAvailableProps(uniqueProps.sort())
         setAllPlayerProps(playerProps)
@@ -312,12 +312,12 @@ export default function PlayerPropDashboard() {
               const maxLine = Math.max(...lines)
               setLineRange({ min: minLine, max: maxLine })
               setLineValue(selectedProp.line)
-              console.log('Line range:', { min: minLine, max: maxLine })
+              // Line range calculated
             }
           }
         }
       } catch (err) {
-        console.error('Error fetching available props:', err)
+        // Error fetching available props
       }
     }
 
@@ -361,7 +361,7 @@ export default function PlayerPropDashboard() {
             }
           }
         } catch (err) {
-          console.error('Error fetching line range:', err)
+          // Error fetching line range
         }
       }
       

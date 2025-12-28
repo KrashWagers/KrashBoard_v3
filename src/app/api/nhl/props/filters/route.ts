@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 interface FilterOptions {
   players: string[]
@@ -45,7 +46,7 @@ export async function GET() {
     }
     return NextResponse.json(data)
   } catch (error) {
-    console.error('NHL filter options error', error)
+    logger.error('Failed to fetch NHL filter options', error)
     return NextResponse.json({ error: 'Failed to fetch filter options' }, { status: 500 })
   }
 }

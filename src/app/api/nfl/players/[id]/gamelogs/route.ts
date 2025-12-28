@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 const bigquery = new BigQuery(
   getBigQueryConfig(
@@ -13,7 +14,7 @@ const bigquery = new BigQuery(
 const PLAYER_GAMELOGS_TTL = 24 * 60 // 24 hours in minutes
 
 async function fetchPlayerGamelogsFromBigQuery(playerId: string) {
-  console.log(`Fetching gamelogs for player ${playerId} from BigQuery...`)
+  logger.debug(`Fetching gamelogs for player ${playerId} from BigQuery`)
   const query = `
     SELECT 
       season,
@@ -286,7 +287,7 @@ async function fetchPlayerGamelogsFromBigQuery(playerId: string) {
   }
   
   const [rows] = await bigquery.query(options)
-  console.log(`Fetched ${rows.length} gamelog entries for player ${playerId}`)
+  logger.debug(`Fetched ${rows.length} gamelog entries for player ${playerId}`)
   return rows
 }
 
@@ -317,7 +318,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching player gamelogs:', error)
+    logger.error('Failed to fetch player gamelogs', error)
     return NextResponse.json(
       { error: 'Failed to fetch player gamelogs data' },
       { status: 500 }

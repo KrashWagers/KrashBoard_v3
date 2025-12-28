@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 interface PlayerVsOppRow {
   game_id: string | null
@@ -67,13 +68,13 @@ async function fetchPlayerVsOppData(): Promise<PlayerVsOppRow[]> {
     ORDER BY full_name, opponent_abbr
   `
   
-  console.log('[Player vs Opp API] Fetching data from BigQuery...')
+  logger.debug('[Player vs Opp API] Fetching data from BigQuery')
   const [rows] = await bigquery.query({ query })
-  console.log(`[Player vs Opp API] Fetched ${rows.length} rows`)
+  logger.debug(`[Player vs Opp API] Fetched ${rows.length} rows`)
   
-  // Log sample data for reference
-  if (rows.length > 0) {
-    console.log('[Player vs Opp API] Sample row:', JSON.stringify(rows[0], null, 2))
+  // Log sample data for reference (development only)
+  if (rows.length > 0 && process.env.NODE_ENV === 'development') {
+    logger.debug('[Player vs Opp API] Sample row', rows[0])
   }
   
   return rows as PlayerVsOppRow[]
@@ -90,12 +91,12 @@ export async function GET(request: NextRequest) {
     let allData = serverCache.get<PlayerVsOppRow[]>(CACHE_KEYS.NHL_PLAYER_VS_OPP)
 
     if (!allData) {
-      console.log('[Player vs Opp API] Cache miss, fetching from BigQuery...')
+      logger.debug('[Player vs Opp API] Cache miss, fetching from BigQuery')
       allData = await fetchPlayerVsOppData()
       serverCache.set(CACHE_KEYS.NHL_PLAYER_VS_OPP, allData, CACHE_TTL.NHL_PLAYER_VS_OPP)
-      console.log(`[Player vs Opp API] Cached ${allData.length} rows`)
+      logger.debug(`[Player vs Opp API] Cached ${allData.length} rows`)
     } else {
-      console.log(`[Player vs Opp API] Cache hit, returning ${allData.length} rows`)
+      logger.debug(`[Player vs Opp API] Cache hit, returning ${allData.length} rows`)
     }
 
     const paginated = allData.slice(offset, offset + limit)
@@ -112,11 +113,11 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[Player vs Opp API] Error:', error)
+    logger.error('[Player vs Opp API] Failed to fetch data', error)
     return NextResponse.json(
       { 
         error: 'Failed to fetch Player vs Opp data',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        success: false
       },
       { status: 500 }
     )

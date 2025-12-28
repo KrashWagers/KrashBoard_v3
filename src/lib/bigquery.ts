@@ -60,7 +60,7 @@ function getBigQueryClient(): BigQuery {
 }
 
 // Generic query function
-export async function queryBigQuery<T = any>(
+export async function queryBigQuery<T = unknown>(
   query: string,
   options?: { maxResults?: number; timeoutMs?: number }
 ): Promise<T[]> {
@@ -102,7 +102,7 @@ export async function getNFLMatchups(season: number = 2024, week?: number) {
   // Use parameterized query
   const bigquery = getBigQueryClient()
   const [rows] = await bigquery.query({ query, params })
-  return rows as any[]
+  return rows as unknown[]
 }
 
 export async function getNFLPlayers(filters?: {
@@ -201,7 +201,7 @@ export async function getPlayerGamelogs(
   // Use parameterized query
   const bigquery = getBigQueryClient()
   const [rows] = await bigquery.query({ query, params })
-  return rows as any[]
+  return rows as unknown[]
 }
 
 export async function getPlayerProps(
@@ -261,7 +261,7 @@ export async function getPlayerProps(
   // Use parameterized query
   const bigquery = getBigQueryClient()
   const [rows] = await bigquery.query({ query, params })
-  return rows as any[]
+  return rows as unknown[]
 }
 
 export async function getTeamStats(
@@ -302,7 +302,7 @@ export async function getTeamStats(
   // Use parameterized query
   const bigquery = getBigQueryClient()
   const [rows] = await bigquery.query({ query, params })
-  return rows as any[]
+  return rows as unknown[]
 }
 
 export async function getDepthCharts(team?: string) {
@@ -323,7 +323,7 @@ export async function getDepthCharts(team?: string) {
   // Use parameterized query
   const bigquery = getBigQueryClient()
   const [rows] = await bigquery.query({ query, params })
-  return rows as any[]
+  return rows as unknown[]
 }
 
 // Utility function to test BigQuery connection

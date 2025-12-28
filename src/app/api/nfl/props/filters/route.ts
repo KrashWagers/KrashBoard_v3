@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 interface FilterOptions {
   players: string[]
@@ -50,15 +51,15 @@ export async function GET() {
     let filterOptions = serverCache.get<FilterOptions>(CACHE_KEYS.FILTER_OPTIONS)
     
     if (!filterOptions) {
-      console.log('Filter options cache miss - fetching from BigQuery...')
+      logger.debug('Filter options cache miss - fetching from BigQuery')
       // First user after cache expiry fetches from BigQuery
       filterOptions = await fetchFilterOptionsFromBigQuery()
       
       // Store in cache for 24 hours
       serverCache.set(CACHE_KEYS.FILTER_OPTIONS, filterOptions, CACHE_TTL.FILTER_OPTIONS)
-      console.log(`Cached filter options for 24 hours`)
+      logger.debug('Cached filter options for 24 hours')
     } else {
-      console.log('Filter options cache hit - using cached data')
+      logger.debug('Filter options cache hit - using cached data')
     }
 
     return NextResponse.json({
@@ -73,7 +74,7 @@ export async function GET() {
       }
     })
   } catch (error) {
-    console.error('Error fetching filter options:', error)
+    logger.error('Failed to fetch filter options', error)
     return NextResponse.json(
       { error: 'Failed to fetch filter options' },
       { status: 500 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BigQuery } from '@google-cloud/bigquery'
 import { serverCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 import { getBigQueryConfig } from '@/lib/bigquery'
+import { logger } from '@/lib/logger'
 
 interface RawNHLRow {
   Prop_UID: string | null
@@ -91,20 +92,25 @@ async function fetchAllRaw(): Promise<RawNHLRow[]> {
   return rows as RawNHLRow[]
 }
 
-function toESTIso(dateStr: any, timeStr: any): string | null {
+function toESTIso(dateStr: string | null | undefined | { value?: string }, timeStr: string | null | undefined | { value?: string }): string | null {
   if (!dateStr || !timeStr) return null
   
   try {
     // Handle BigQuery date/time objects - they might be objects with value property
-    let dateValue = dateStr
-    let timeValue = timeStr
+    let dateValue: string
+    let timeValue: string
     
     // If it's an object, try to extract the value
-    if (typeof dateStr === 'object' && dateStr.value) {
+    if (typeof dateStr === 'object' && dateStr !== null && 'value' in dateStr && dateStr.value) {
       dateValue = dateStr.value
+    } else {
+      dateValue = String(dateStr)
     }
-    if (typeof timeStr === 'object' && timeStr.value) {
+    
+    if (typeof timeStr === 'object' && timeStr !== null && 'value' in timeStr && timeStr.value) {
       timeValue = timeStr.value
+    } else {
+      timeValue = String(timeStr)
     }
     
     // Convert to strings if needed
@@ -118,13 +124,13 @@ function toESTIso(dateStr: any, timeStr: any): string | null {
     const utc = new Date(`${dateStrFinal}T${timeStrFinal}Z`)
     // Check if the date is valid
     if (isNaN(utc.getTime())) {
-      console.warn(`Invalid date/time: ${dateStrFinal} ${timeStrFinal}`)
+      logger.warn('Invalid date/time', { dateStr: dateStrFinal, timeStr: timeStrFinal })
       return null
     }
     // EST (without DST handling requirement specified). Use America/New_York for display later on client.
     return utc.toISOString()
   } catch (error) {
-    console.warn(`Error parsing date/time: ${dateStr} ${timeStr}`, error)
+    logger.warn('Error parsing date/time', error)
     return null
   }
 }
@@ -139,9 +145,9 @@ function extractPlayerIdFromHeadshot(headshotUrl: string | null): string | null 
 function groupAndSelectBest(rows: RawNHLRow[]): GroupedProp[] {
   const map = new Map<string, GroupedProp>()
 
-  // Debug: log first few rows to see data structure
-  if (rows.length > 0) {
-    console.log('Sample NHL data:', JSON.stringify(rows[0], null, 2))
+  // Debug: log first few rows to see data structure (development only)
+  if (rows.length > 0 && process.env.NODE_ENV === 'development') {
+    logger.debug('Sample NHL data', rows[0])
   }
 
   for (const r of rows) {
@@ -225,7 +231,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('NHL props error', error)
+    logger.error('Failed to fetch NHL props', error)
     return NextResponse.json({ error: 'Failed to fetch NHL props' }, { status: 500 })
   }
 }
