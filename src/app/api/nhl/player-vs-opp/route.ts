@@ -165,7 +165,7 @@ async function fetchPlayerVsOppData(): Promise<PlayerVsOppRow[]> {
           first_goal_scorer: pickNumber(log?.first_goal_scorer),
           last_goal_scorer: pickNumber(log?.last_goal_scorer),
         }))
-        .sort((a, b) => {
+        .sort((a: PlayerVsOppGamelog, b: PlayerVsOppGamelog) => {
           const dateCompare = (b.game_date || '').localeCompare(a.game_date || '')
           if (dateCompare !== 0) return dateCompare
           return (b.game_id || '').localeCompare(a.game_id || '')
