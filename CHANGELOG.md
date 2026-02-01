@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added middleware protection so only the main home page is public while all other routes require authentication.
 - Added admin-only routing for `/admin` paths plus an auth/admin guide for future gating.
 
+### Changed - Profile & Settings Experience
+- Replaced footer settings/sign-in links with a profile button showing avatar/name.
+- Rebuilt the settings page into a profile + preferences hub with live Supabase-backed controls.
+
 ### Added - MLB Section Scaffolding
 - Added MLB route group with placeholder pages for Home, Scores, Lineups, Weather Report, Prop Lab, Market, Tools, Team, and Player sections.
 - Added MLB section navbar and sport-scoped sidebar entries for MLB tools, team, and player workflows.

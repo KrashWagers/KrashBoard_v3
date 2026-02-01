@@ -1,19 +1,23 @@
 "use client"
 
 import * as React from "react"
+import { useTheme } from "next-themes"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { 
   User, 
-  CreditCard, 
+  Camera, 
   Settings as SettingsIcon, 
   LogOut, 
   Trash2,
   Check
 } from "lucide-react"
-import Image from "next/image"
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 
 const sportsbooks = [
   { id: "draftkings", name: "DraftKings", logo: "/Images/Sportsbook_Logos/DraftKingsLogo.png", available: true },
@@ -43,24 +47,200 @@ const oddsFormats = [
   { id: "implied", name: "Implied", description: "52.4%, 40.0%" },
 ]
 
+type UserProfile = {
+  display_name: string | null
+  avatar_url: string | null
+  role: string | null
+}
+
+type UserPreferences = {
+  sportsbooks: string[]
+  odds_format: string
+  theme: string
+}
+
+const defaultPreferences: UserPreferences = {
+  sportsbooks: ["draftkings", "fanduel"],
+  odds_format: "american",
+  theme: "system",
+}
+
 export default function SettingsPage() {
-  const [selectedSportsbooks, setSelectedSportsbooks] = React.useState<string[]>(["draftkings", "fanduel"])
-  const [selectedOddsFormat, setSelectedOddsFormat] = React.useState("american")
+  const supabase = createSupabaseBrowserClient()
+  const { theme, setTheme } = useTheme()
+  const [profile, setProfile] = React.useState<UserProfile>({
+    display_name: null,
+    avatar_url: null,
+    role: null,
+  })
+  const [email, setEmail] = React.useState<string | null>(null)
+  const [preferences, setPreferences] = React.useState<UserPreferences>(defaultPreferences)
+  const [savingProfile, setSavingProfile] = React.useState(false)
+  const [savingPrefs, setSavingPrefs] = React.useState(false)
+  const [uploading, setUploading] = React.useState(false)
+  const [statusMessage, setStatusMessage] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const loadProfile = async () => {
+      const { data } = await supabase.auth.getUser()
+      const user = data.user
+      if (!user) return
+      setEmail(user.email ?? null)
+
+      const { data: profileData } = await supabase
+        .from("user_profiles")
+        .select("display_name, avatar_url, role")
+        .eq("user_id", user.id)
+        .single()
+
+      if (profileData) {
+        setProfile({
+          display_name: profileData.display_name ?? null,
+          avatar_url: profileData.avatar_url ?? null,
+          role: profileData.role ?? null,
+        })
+      }
+
+      const { data: prefData } = await supabase
+        .from("user_preferences")
+        .select("sportsbooks, odds_format, theme")
+        .eq("user_id", user.id)
+        .single()
+
+      if (prefData) {
+        const nextPrefs = {
+          sportsbooks: Array.isArray(prefData.sportsbooks) ? prefData.sportsbooks : defaultPreferences.sportsbooks,
+          odds_format: prefData.odds_format ?? defaultPreferences.odds_format,
+          theme: prefData.theme ?? defaultPreferences.theme,
+        }
+        setPreferences(nextPrefs)
+        setTheme(nextPrefs.theme)
+      } else {
+        setTheme(defaultPreferences.theme)
+      }
+    }
+
+    loadProfile()
+  }, [setTheme, supabase])
 
   const toggleSportsbook = (sportsbookId: string) => {
-    setSelectedSportsbooks(prev => 
-      prev.includes(sportsbookId) 
-        ? prev.filter(id => id !== sportsbookId)
-        : [...prev, sportsbookId]
-    )
+    setPreferences((prev) => ({
+      ...prev,
+      sportsbooks: prev.sportsbooks.includes(sportsbookId)
+        ? prev.sportsbooks.filter((id) => id !== sportsbookId)
+        : [...prev.sportsbooks, sportsbookId],
+    }))
+  }
+
+  const handleProfileSave = async () => {
+    setSavingProfile(true)
+    setStatusMessage(null)
+    try {
+      const { data } = await supabase.auth.getUser()
+      const user = data.user
+      if (!user) {
+        setStatusMessage("You must be signed in to update your profile.")
+        return
+      }
+
+      const { error } = await supabase
+        .from("user_profiles")
+        .upsert({
+          user_id: user.id,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url,
+          role: profile.role ?? "user",
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) {
+        throw error
+      }
+      setStatusMessage("Profile updated.")
+    } catch (err) {
+      const supabaseMessage =
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message ?? "")
+          : ""
+      setStatusMessage(
+        supabaseMessage.trim().length > 0
+          ? supabaseMessage
+          : "Profile update failed."
+      )
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handlePreferencesSave = async () => {
+    setSavingPrefs(true)
+    setStatusMessage(null)
+    try {
+      const { data } = await supabase.auth.getUser()
+      const user = data.user
+      if (!user) return
+
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          sportsbooks: preferences.sportsbooks,
+          odds_format: preferences.odds_format,
+          theme: preferences.theme,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) throw error
+      setStatusMessage("Preferences saved.")
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Preferences update failed.")
+    } finally {
+      setSavingPrefs(false)
+    }
+  }
+
+  const handleAvatarUpload = async (file: File | null) => {
+    if (!file) return
+    setUploading(true)
+    setStatusMessage(null)
+    try {
+      const { data } = await supabase.auth.getUser()
+      const user = data.user
+      if (!user) return
+
+      const fileExt = file.name.split(".").pop() || "png"
+      const filePath = `${user.id}/avatar.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath)
+
+      const publicUrl = publicData.publicUrl
+      setProfile((prev) => ({ ...prev, avatar_url: publicUrl }))
+      setStatusMessage("Avatar updated.")
+    } catch (err) {
+      setStatusMessage(err instanceof Error ? err.message : "Avatar upload failed.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = "/login"
   }
 
   const clearCache = () => {
-    // Clear browser cache
-    if (typeof window !== 'undefined') {
-      if ('caches' in window) {
-        caches.keys().then(names => {
-          names.forEach(name => {
+    if (typeof window !== "undefined") {
+      if ("caches" in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => {
             caches.delete(name)
           })
         })
@@ -68,149 +248,109 @@ export default function SettingsPage() {
       localStorage.clear()
       sessionStorage.clear()
     }
-    alert("Cache cleared successfully!")
+    setStatusMessage("Cache cleared.")
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="mx-auto w-full max-w-5xl space-y-8 px-4 pb-10 lg:max-w-[70%]">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold">Profile & Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account, preferences, and sportsbook selections
+          Manage your profile, preferences, and sportsbook selections.
         </p>
       </div>
 
-      {/* User Profile Section */}
+      {statusMessage ? (
+        <Card>
+          <CardContent className="py-3 text-sm text-muted-foreground">{statusMessage}</CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            User Profile
+            Profile
           </CardTitle>
-          <CardDescription>
-            Manage your account information and preferences
-          </CardDescription>
+          <CardDescription>Update your name, avatar, and account access.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-              <User className="h-8 w-8 text-muted-foreground" />
+        <CardContent className="space-y-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-gray-700 bg-black/40">
+              {profile.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt={profile.display_name || "Avatar"} className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-8 w-8 text-muted-foreground" />
+              )}
             </div>
-            <div>
-              <h3 className="font-semibold">Guest User</h3>
-              <p className="text-sm text-muted-foreground">Not signed in</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Manage Subscription
-            </Button>
-            <Button variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign In
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sportsbook Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Sportsbook Selection
-          </CardTitle>
-          <CardDescription>
-            Choose which sportsbooks to display odds and data from
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {sportsbooks.map((sportsbook) => (
-              <div
-                key={sportsbook.id}
-                className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                  selectedSportsbooks.includes(sportsbook.id)
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => toggleSportsbook(sportsbook.id)}
-              >
-                {selectedSportsbooks.includes(sportsbook.id) && (
-                  <div className="absolute top-2 right-2">
-                    <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="h-3 w-3 text-primary-foreground" />
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-col items-center space-y-2">
-                  <Image
-                    src={sportsbook.logo}
-                    alt={sportsbook.name}
-                    width={40}
-                    height={40}
-                    className="w-10 h-10 object-contain"
-                  />
-                  <span className="text-sm font-medium text-center">{sportsbook.name}</span>
-                  {!sportsbook.available && (
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                  )}
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatar-upload">Profile image</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleAvatarUpload(event.target.files?.[0] ?? null)}
+                  disabled={uploading}
+                />
+                <Button variant="outline" size="sm" disabled={uploading}>
+                  <Camera className="mr-2 h-4 w-4" />
+                  {uploading ? "Uploading..." : "Upload"}
+                </Button>
               </div>
-            ))}
+              <p className="text-xs text-muted-foreground">Recommended: square PNG or JPG.</p>
+            </div>
           </div>
-          <div className="mt-4 text-sm text-muted-foreground">
-            {selectedSportsbooks.length} sportsbook{selectedSportsbooks.length !== 1 ? 's' : ''} selected
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="display-name">Display name</Label>
+              <Input
+                id="display-name"
+                value={profile.display_name ?? ""}
+                onChange={(event) => setProfile((prev) => ({ ...prev, display_name: event.target.value }))}
+                placeholder="Your name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={email ?? ""} disabled />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="secondary">{profile.role ?? "user"}</Badge>
+            <Button onClick={handleProfileSave} disabled={savingProfile}>
+              {savingProfile ? "Saving..." : "Save Profile"}
+            </Button>
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Webapp Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SettingsIcon className="h-5 w-5" />
-            Webapp Settings
+            Preferences
           </CardTitle>
-          <CardDescription>
-            Customize your KrashBoard experience
-          </CardDescription>
+          <CardDescription>Control display formats and sportsbook sources.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Theme Settings */}
-          <div className="space-y-3">
-            <h4 className="font-medium">Theme</h4>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <SettingsIcon className="h-4 w-4 mr-2" />
-                Light Mode
-              </Button>
-              <Button variant="outline" size="sm">
-                <SettingsIcon className="h-4 w-4 mr-2" />
-                Dark Mode
-              </Button>
-              <Button variant="outline" size="sm">
-                <SettingsIcon className="h-4 w-4 mr-2" />
-                System
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Odds Display */}
           <div className="space-y-3">
             <h4 className="font-medium">Odds Display Format</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {oddsFormats.map((format) => (
                 <Button
                   key={format.id}
-                  variant={selectedOddsFormat === format.id ? "default" : "outline"}
+                  variant={preferences.odds_format === format.id ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setSelectedOddsFormat(format.id)}
-                  className="flex flex-col h-auto py-3"
+                  onClick={() => setPreferences((prev) => ({ ...prev, odds_format: format.id }))}
+                  className="flex h-auto flex-col py-3"
                 >
                   <span className="font-medium">{format.name}</span>
                   <span className="text-xs text-muted-foreground">{format.description}</span>
@@ -221,35 +361,63 @@ export default function SettingsPage() {
 
           <Separator />
 
-          {/* Cache Management */}
           <div className="space-y-3">
-            <h4 className="font-medium">Cache Management</h4>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={clearCache}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear Website Cache
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Clear stored data to refresh the application
-              </span>
+            <h4 className="font-medium">Sportsbook Selection</h4>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {sportsbooks.map((sportsbook) => {
+                const isSelected = preferences.sportsbooks.includes(sportsbook.id)
+                return (
+                  <Card
+                    key={sportsbook.id}
+                    className={`cursor-pointer transition-none ${isSelected ? "border-emerald-500/60 bg-emerald-500/10" : ""}`}
+                    onClick={() => toggleSportsbook(sportsbook.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Image
+                          src={sportsbook.logo}
+                          alt={sportsbook.name}
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 object-contain"
+                        />
+                        <span className="text-sm font-medium text-center">{sportsbook.name}</span>
+                        {isSelected ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                            <Check className="h-3 w-3" />
+                            Selected
+                          </span>
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {preferences.sportsbooks.length} sportsbook{preferences.sportsbooks.length !== 1 ? "s" : ""} selected
             </div>
           </div>
 
           <Separator />
 
-          {/* Account Actions */}
           <div className="space-y-3">
-            <h4 className="font-medium">Account</h4>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
+            <h4 className="font-medium">Cache Management</h4>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" size="sm" onClick={clearCache}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear Website Cache
               </Button>
-              <Button variant="destructive" size="sm">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Account
-              </Button>
+              <span className="text-sm text-muted-foreground">
+                Clears stored data to refresh the application.
+              </span>
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={handlePreferencesSave} disabled={savingPrefs}>
+              {savingPrefs ? "Saving..." : "Save Preferences"}
+            </Button>
           </div>
         </CardContent>
       </Card>

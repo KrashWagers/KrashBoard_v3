@@ -9,9 +9,7 @@ import {
   Target, 
   TrendingUp,
   Users,
-  Settings,
-  LogIn,
-  LogOut,
+  UserCircle,
   ChevronDown,
   Zap,
   Percent,
@@ -292,7 +290,8 @@ const sports: SportNav[] = [
 export function AppSidebar() {
   const pathname = usePathname()
   const [userEmail, setUserEmail] = React.useState<string | null>(null)
-  const [authLoading, setAuthLoading] = React.useState(false)
+  const [displayName, setDisplayName] = React.useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null)
   const activeSport =
     sports.find((sport) => pathname.startsWith(sport.root)) ?? sports[0]
   const isActivePath = (url: string, exact = false) =>
@@ -300,29 +299,52 @@ export function AppSidebar() {
 
   React.useEffect(() => {
     const supabase = createSupabaseBrowserClient()
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null)
-    })
+    const loadProfile = async () => {
+      const { data } = await supabase.auth.getUser()
+      const user = data.user
+      setUserEmail(user?.email ?? null)
+
+      if (!user) {
+        setDisplayName(null)
+        setAvatarUrl(null)
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", user.id)
+        .single()
+
+      setDisplayName(profile?.display_name ?? null)
+      setAvatarUrl(profile?.avatar_url ?? null)
+    }
+
+    loadProfile()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null)
+      const nextUser = session?.user ?? null
+      setUserEmail(nextUser?.email ?? null)
+      if (!nextUser) {
+        setDisplayName(null)
+        setAvatarUrl(null)
+        return
+      }
+      supabase
+        .from("user_profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", nextUser.id)
+        .single()
+        .then(({ data: profile }) => {
+          setDisplayName(profile?.display_name ?? null)
+          setAvatarUrl(profile?.avatar_url ?? null)
+        })
     })
 
     return () => {
       subscription.unsubscribe()
     }
   }, [])
-
-  const handleSignOut = async () => {
-    setAuthLoading(true)
-    try {
-      const supabase = createSupabaseBrowserClient()
-      await supabase.auth.signOut()
-      setUserEmail(null)
-    } finally {
-      setAuthLoading(false)
-    }
-  }
 
   return (
     <Sidebar>
@@ -653,26 +675,24 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Link href="/settings">
-                <Settings />
-                <span>Settings</span>
+              <Link href={userEmail ? "/settings" : "/login"}>
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-gray-700 bg-black/40">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt={displayName || "Profile"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <UserCircle className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </span>
+                <span className="text-sm font-medium">
+                  {userEmail ? displayName || "Profile" : "Sign in"}
+                </span>
               </Link>
             </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            {userEmail ? (
-              <SidebarMenuButton onClick={handleSignOut} disabled={authLoading}>
-                <LogOut />
-                <span>{authLoading ? "Signing out..." : "Sign out"}</span>
-              </SidebarMenuButton>
-            ) : (
-              <SidebarMenuButton asChild>
-                <Link href="/login">
-                  <LogIn />
-                  <span>Sign in</span>
-                </Link>
-              </SidebarMenuButton>
-            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
