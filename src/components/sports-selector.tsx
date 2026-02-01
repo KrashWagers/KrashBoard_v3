@@ -40,7 +40,7 @@ const sports = [
     name: "MLB",
     href: "/mlb",
     logo: "/Images/League_Logos/MLB-Logo.png",
-    available: false,
+    available: true,
   },
 ]
 

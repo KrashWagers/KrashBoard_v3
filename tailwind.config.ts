@@ -62,7 +62,7 @@ const config: Config = {
   			}
   		},
 		borderRadius: {
-			'card-outer': '6px',
+			'card-outer': '14px',
 			'card-inner': '4px',
 			button: '4px',
 			input: '4px',

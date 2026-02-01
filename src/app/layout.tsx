@@ -4,11 +4,11 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { SportsSelector } from "@/components/sports-selector"
 import { ErrorBoundary } from "@/components/error-boundary"
-import Link from "next/link"
-import Image from "next/image"
+import { PageTitle } from "@/components/page-title"
+import { NavbarBackButton } from "@/components/navbar-back-button"
+import { GlobalSearch } from "@/components/global-search"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -62,23 +62,17 @@ export default function RootLayout({
           <SidebarProvider>
             <AppSidebar />
             <main className="flex-1 flex flex-col">
-              <div className="flex h-12 items-center justify-between px-4 border-b bg-background">
+              <div className="flex h-12 items-center justify-between px-4 border-b bg-sidebar dark:bg-sidebar border-sidebar-border sticky top-0 z-50 transition-all duration-200">
                 <div className="flex items-center gap-4">
                   <SidebarTrigger />
-                  <Link href="/" className="flex items-center gap-2">
-                    <Image
-                      src="/Images/Brand/KW Logo PNG.png"
-                      alt="KrashBoard"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8"
-                    />
-                    <span className="font-bold text-lg hidden sm:block">KrashBoard</span>
-                  </Link>
+                  <GlobalSearch />
+                  <NavbarBackButton />
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex-1 flex justify-center">
+                  <PageTitle />
+                </div>
+                <div className="hidden items-center gap-4 lg:flex">
                   <SportsSelector />
-                  <ThemeToggle />
                 </div>
               </div>
               <div className="flex-1 p-6">

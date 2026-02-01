@@ -7,13 +7,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface PlayerVsOpponentHistoryProps {
   playerId: string
   nextOpponent?: string
+  data?: any[]
 }
 
-export function PlayerVsOpponentHistory({ playerId, nextOpponent }: PlayerVsOpponentHistoryProps) {
-  const [data, setData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+export function PlayerVsOpponentHistory({ playerId, nextOpponent, data: initialData }: PlayerVsOpponentHistoryProps) {
+  const [data, setData] = useState<any[]>(initialData || [])
+  const [loading, setLoading] = useState(initialData === undefined)
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setData(initialData)
+      setLoading(false)
+      return
+    }
+
     const fetchData = async () => {
       try {
         const response = await fetch(`/api/nhl/players/${playerId}/vs-opponent`)
@@ -29,13 +36,13 @@ export function PlayerVsOpponentHistory({ playerId, nextOpponent }: PlayerVsOppo
     }
 
     fetchData()
-  }, [playerId])
+  }, [playerId, initialData])
 
   if (loading) {
     return (
-      <Card className="border border-gray-700 bg-[#171717]">
-        <CardHeader>
-          <CardTitle className="text-sm">Player vs Opponent History</CardTitle>
+      <Card>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm text-muted-foreground/80 font-medium">Player vs Opponent History</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">Loading...</div>
@@ -46,9 +53,9 @@ export function PlayerVsOpponentHistory({ playerId, nextOpponent }: PlayerVsOppo
 
   if (!data.length) {
     return (
-      <Card className="border border-gray-700 bg-[#171717]">
-        <CardHeader>
-          <CardTitle className="text-sm">Player vs Opponent History</CardTitle>
+      <Card>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm text-muted-foreground/80 font-medium">Player vs Opponent History</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">No data available</div>
@@ -61,41 +68,40 @@ export function PlayerVsOpponentHistory({ playerId, nextOpponent }: PlayerVsOppo
   const uniqueOpponents = [...new Set(data.map(d => d.opponent_abbr))]
 
   return (
-    <Card className="border border-gray-700 bg-[#171717]">
-      <CardHeader>
-        <CardTitle className="text-sm">Player vs Opponent History</CardTitle>
+    <Card variant="secondary">
+      <CardHeader className="p-4 pb-3 border-b border-border/30 dark:border-border/20">
+        <CardTitle className="text-sm font-medium text-[#1E293B] dark:text-white">Player vs Opponent History</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <div className="max-h-[600px] overflow-y-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Opponent</TableHead>
-                <TableHead className="text-xs">GP</TableHead>
-                <TableHead className="text-xs">G</TableHead>
-                <TableHead className="text-xs">A</TableHead>
-                <TableHead className="text-xs">P</TableHead>
-                <TableHead className="text-xs">SOG</TableHead>
+              <TableRow className="border-b border-border/50">
+                <TableHead className="h-10 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Opponent</TableHead>
+                <TableHead className="h-10 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">GP</TableHead>
+                <TableHead className="h-10 px-4 text-xs text-center font-semibold text-muted-foreground uppercase tracking-wider">G</TableHead>
+                <TableHead className="h-10 px-4 text-xs text-center font-semibold text-muted-foreground uppercase tracking-wider">A</TableHead>
+                <TableHead className="h-10 px-4 text-xs text-center font-semibold text-muted-foreground uppercase tracking-wider">P</TableHead>
+                <TableHead className="h-10 px-4 text-xs text-center font-semibold text-muted-foreground uppercase tracking-wider">SOG</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.map((opponent, index) => {
                 const gp = opponent.gp_vs_opp || 1
                 return (
-                  <TableRow key={`${opponent.opponent_abbr}-${index}`}>
-                    <TableCell className="text-xs font-medium">{opponent.opponent_abbr || '-'}</TableCell>
-                    <TableCell className="text-xs">{gp}</TableCell>
-                    <TableCell className="text-xs">{((opponent.goals_vs_opp || 0) / gp).toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">{((opponent.assists_vs_opp || 0) / gp).toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">{((opponent.points_vs_opp || 0) / gp).toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">{((opponent.shots_on_goal_vs_opp || 0) / gp).toFixed(2)}</TableCell>
+                  <TableRow key={`${opponent.opponent_abbr}-${index}`} className="border-b border-border/30 hover:bg-muted/40 transition-colors">
+                    <TableCell className="h-12 px-4 text-sm font-semibold text-foreground">{opponent.opponent_abbr || '-'}</TableCell>
+                    <TableCell className="h-12 px-4 text-sm text-muted-foreground">{gp}</TableCell>
+                    <TableCell className="h-12 px-4 text-sm text-center text-foreground font-medium">{((opponent.goals_vs_opp || 0) / gp).toFixed(2)}</TableCell>
+                    <TableCell className="h-12 px-4 text-sm text-center text-muted-foreground">{((opponent.assists_vs_opp || 0) / gp).toFixed(2)}</TableCell>
+                    <TableCell className="h-12 px-4 text-sm text-center text-muted-foreground">{((opponent.points_vs_opp || 0) / gp).toFixed(2)}</TableCell>
+                    <TableCell className="h-12 px-4 text-sm text-center text-muted-foreground">{((opponent.shots_on_goal_vs_opp || 0) / gp).toFixed(2)}</TableCell>
                   </TableRow>
                 )
               })}
             </TableBody>
           </Table>
         </div>
-
       </CardContent>
     </Card>
   )

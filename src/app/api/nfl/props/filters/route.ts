@@ -18,6 +18,8 @@ const bigquery = new BigQuery(
   )
 )
 
+const DAILY_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=3600'
+
 // Fetch filter options from BigQuery
 async function fetchFilterOptionsFromBigQuery() {
   const query = `
@@ -62,17 +64,24 @@ export async function GET() {
       logger.debug('Filter options cache hit - using cached data')
     }
 
-    return NextResponse.json({
-      players: filterOptions.players,
-      props: filterOptions.props,
-      games: filterOptions.games,
-      sportsbooks: filterOptions.sportsbooks,
-      cacheInfo: {
-        cached: true,
-        cacheTimestamp: serverCache.getInfo(CACHE_KEYS.FILTER_OPTIONS)?.timestamp,
-        cacheExpiresAt: serverCache.getInfo(CACHE_KEYS.FILTER_OPTIONS)?.expiresAt
+    return NextResponse.json(
+      {
+        players: filterOptions.players,
+        props: filterOptions.props,
+        games: filterOptions.games,
+        sportsbooks: filterOptions.sportsbooks,
+        cacheInfo: {
+          cached: true,
+          cacheTimestamp: serverCache.getInfo(CACHE_KEYS.FILTER_OPTIONS)?.timestamp,
+          cacheExpiresAt: serverCache.getInfo(CACHE_KEYS.FILTER_OPTIONS)?.expiresAt,
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': DAILY_CACHE_CONTROL,
+        },
       }
-    })
+    )
   } catch (error) {
     logger.error('Failed to fetch filter options', error)
     return NextResponse.json(

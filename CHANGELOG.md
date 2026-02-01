@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2025-10-27
 
+### Changed - Sidebar Sport Scoping
+- Sidebar now only shows the selected sport's pages, while keeping Home, Settings, and Calculators global.
+- Removed the sport accordion so active sport pages are listed directly in the sidebar.
+
+### Added - MLB Section Scaffolding
+- Added MLB route group with placeholder pages for Home, Scores, Lineups, Weather Report, Prop Lab, Market, Tools, Team, and Player sections.
+- Added MLB section navbar and sport-scoped sidebar entries for MLB tools, team, and player workflows.
+- Enabled MLB in the sport selector and added a calculators landing page for MLB placeholders.
+
+### Changed - Header Controls
+- Moved the sport selector into the mobile sidebar drawer and removed the light theme toggle from the top header.
+
+### Changed - Sidebar Visual Hierarchy
+- Tuned dark sidebar color tokens and added subtle inset depth to the sidebar shell.
+- Emphasized active navigation items with a stronger highlight and left accent rule.
+- Strengthened group label typography for clearer section hierarchy.
+
+### Changed - Card Styling Defaults
+- Updated the global Card component to use rounded-md corners, gray borders, and a static dark background with no hover/glow effects for consistent layout styling.
+
+### Added - Global Search Modal (Sport Scoped)
+- Added header search trigger (Ctrl/Cmd+K) with a centered modal UI.
+- Search results are scoped to the currently selected sport (NHL/NFL supported now).
+- NHL search pulls from BigQuery player gamelogs and routes to player Prop Lab with a default prop seed.
+
+### Changed - NHL Gamecenter Layout & Boxscore Stats
+- Made the Boxscore tab full width and removed Linescore/Game Stats from the boxscore view.
+- Added team logos next to goal scorers in the Summary scoring list.
+- Fixed skater SOG display by mapping to the `sog` field with fallback to `shots`.
+
+### Changed - NHL Prop Lab Prop Dashboards
+- Rebuilt Assists, Points, Shots, and PP Pts dashboards to mirror the Goals layout.
+- Standardized the 5 prop-specific cards per prop with new data mappings.
+- Unified filter controls across all prop dashboards using the shared player payload.
+
+### Changed - NHL Prop Lab Bottom Section
+- Removed Player vs Opponent History and Shot Location Map cards.
+- Added "Last 5 Games" table with a link to the full gamelogs tab.
+
 ### Changed - NHL Shot Location Map Redesign
 
 #### Ice Rink Orientation

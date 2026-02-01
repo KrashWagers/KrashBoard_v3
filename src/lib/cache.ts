@@ -93,6 +93,8 @@ export const CACHE_KEYS = {
   NHL_PLAYER_PROPS: 'nhl_player_props',
   NHL_FILTER_OPTIONS: 'nhl_filter_options',
   NHL_PLAYER_VS_OPP: 'nhl_player_vs_opp',
+  NHL_TEAM_GAMELOGS: 'nhl_team_gamelogs',
+  NHL_PLAYER_PAYLOAD: 'nhl_player_payload',
   // Add other cache keys as needed
 } as const
 
@@ -100,8 +102,23 @@ export const CACHE_KEYS = {
 export const CACHE_TTL = {
   PLAYER_PROPS: 30, // 30 minutes
   FILTER_OPTIONS: 24 * 60, // 24 hours
-  NHL_PLAYER_PROPS: 30,
+  NHL_PLAYER_PROPS: 10, // 10 minutes for odds data
   NHL_FILTER_OPTIONS: 24 * 60,
   NHL_PLAYER_VS_OPP: 30, // 30 minutes
+  NHL_TEAM_GAMELOGS: 24 * 60,
+  NHL_PLAYER_PAYLOAD: 24 * 60,
   // Add other TTL values as needed
 } as const
+
+// Shared cache helper (in-memory by default; swap for Redis in prod if desired)
+export async function getCached<T>(key: string): Promise<T | null> {
+  return serverCache.get<T>(key)
+}
+
+export async function setCached<T>(key: string, data: T, ttlMinutes: number): Promise<void> {
+  serverCache.set(key, data, ttlMinutes)
+}
+
+export async function invalidateCached(key: string): Promise<void> {
+  serverCache.invalidate(key)
+}

@@ -97,3 +97,8 @@ If you don't have a Supabase project yet:
 5. Wait 2-3 minutes for setup
 6. Follow Method 1 above to get your credentials
 
+
+
+
+
+

@@ -10,6 +10,7 @@ interface IceRinkVisualizationProps {
   gameId?: string
   gamelogs?: any[] // Pass in the gamelogs from parent
   timeFilter?: string // Pass in the time filter from parent
+  playByPlay?: any[]
 }
 
 interface ShotEvent {
@@ -31,7 +32,13 @@ const RINK = {
 }
 
 
-export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelogs, timeFilter: parentTimeFilter }: IceRinkVisualizationProps) {
+export function IceRinkVisualization({
+  playerId,
+  gameId,
+  gamelogs: parentGamelogs,
+  timeFilter: parentTimeFilter,
+  playByPlay,
+}: IceRinkVisualizationProps) {
   const [data, setData] = useState<any[]>([])
   const [playerName, setPlayerName] = useState<string>('')
   const [gameLogs, setGameLogs] = useState<any[]>([])
@@ -78,6 +85,12 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
   }, [playerId, parentGamelogs])
 
   useEffect(() => {
+    if (playByPlay !== undefined) {
+      setData(playByPlay)
+      setLoading(false)
+      return
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true)
@@ -96,7 +109,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
     }
 
     fetchData()
-  }, [playerId, playerName])
+  }, [playerId, playerName, playByPlay])
 
   // Filter gamelogs based on parent time filter
   const filteredGameLogs = useMemo(() => {
@@ -210,9 +223,9 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
 
   if (loading) {
     return (
-      <Card className="border border-gray-700 bg-[#171717]">
-        <CardHeader>
-          <CardTitle className="text-sm">Shot Location Map</CardTitle>
+      <Card>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm text-muted-foreground/80 font-medium">Shot Location Map</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">Loading...</div>
@@ -222,27 +235,27 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
   }
 
   return (
-    <Card className="border border-gray-700 bg-[#171717]">
-      <CardHeader>
-        <CardTitle className="text-sm">Shot Location Map</CardTitle>
+    <Card variant="secondary">
+      <CardHeader className="p-4 pb-3 border-b border-border/30 dark:border-border/20">
+        <CardTitle className="text-sm font-medium text-[#1E293B] dark:text-white">Shot Location Map</CardTitle>
       </CardHeader>
       <CardContent>
         {/* Summary Stats */}
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="text-center">
-            <div className="text-xs text-muted-foreground pb-1 border-b border-gray-700 mb-2">Events</div>
+            <div className="text-xs text-muted-foreground pb-1 border-b border-border mb-2">Events</div>
             <div className="text-lg font-semibold">{total}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-muted-foreground pb-1 border-b border-gray-700 mb-2">Goals</div>
+            <div className="text-xs text-muted-foreground pb-1 border-b border-border mb-2">Goals</div>
             <div className="text-lg font-semibold text-green-500">{goals}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-muted-foreground pb-1 border-b border-gray-700 mb-2">Shots</div>
+            <div className="text-xs text-muted-foreground pb-1 border-b border-border mb-2">Shots</div>
             <div className="text-lg font-semibold">{shots}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-muted-foreground pb-1 border-b border-gray-700 mb-2">Shot %</div>
+            <div className="text-xs text-muted-foreground pb-1 border-b border-border mb-2">Shot %</div>
             <div className="text-lg font-semibold">{goals > 0 && shots > 0 ? ((goals / shots) * 100).toFixed(1) : '0'}%</div>
           </div>
         </div>
@@ -326,11 +339,11 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
             </div>
             
             {/* Collapsible Advanced Filters */}
-            <details className="border border-gray-700 rounded p-2">
+            <details className="border border-border rounded p-2">
               <summary className="cursor-pointer text-xs text-muted-foreground hover:text-white py-2">
                 Advanced Filters
               </summary>
-              <div className="grid grid-cols-3 gap-3 mt-2 pt-2 border-t border-gray-700">
+              <div className="grid grid-cols-3 gap-3 mt-2 pt-2 border-t border-border">
                 {strengths.length > 0 && (
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Strength</label>
@@ -430,7 +443,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
         </div>
 
         {/* Ice Rink SVG */}
-        <div className="relative border border-gray-700 rounded overflow-hidden" style={{ background: 'transparent' }}>
+        <div className="relative border border-border rounded overflow-hidden" style={{ background: 'transparent' }}>
           <svg
             width={svgHeight}
             height={svgWidth * 0.7}
@@ -800,7 +813,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
 
         {/* Footer - Hovered Shot/Hex Info (Static Height) */}
         <div className="mt-4 min-h-[180px]">
-          <div className={`bg-[#1a1a1a] border-2 rounded-lg p-4 shadow-2xl transition-all duration-200 ${
+          <div className={`bg-card border-2 rounded-lg p-4 shadow-2xl transition-all duration-200 ${
             hoveredShot 
               ? hoveredShot.Is_Goal === 1 
                 ? 'border-blue-500' 
@@ -811,16 +824,16 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                     : 'border-orange-500'
               : hoveredHex
                 ? 'border-blue-500'
-                : 'border-gray-700'
+                : 'border-border'
           }`}>
             {hoveredHex ? (
               <>
                 {/* Hexagon Stats Header */}
-                <div className="mb-3 pb-2 border-b border-gray-700">
-                  <div className="text-white font-bold text-sm">
+                <div className="mb-3 pb-2 border-b border-border">
+                  <div className="text-foreground font-bold text-sm">
                     {hoveredHex.zone ? `${hoveredHex.zone}` : 'Zone Statistics'}
                   </div>
-                  <div className="text-gray-400 text-xs mt-1">
+                  <div className="text-muted-foreground text-xs mt-1">
                     {hoveredHex.count} {hoveredHex.count === 1 ? 'shot' : 'shots'} from this area
                   </div>
                 </div>
@@ -828,12 +841,12 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                 {/* Hexagon Stats */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center gap-6">
-                    <span className="text-gray-400 text-xs">Total Shots</span>
+                    <span className="text-muted-foreground text-xs">Total Shots</span>
                     <span className="text-white font-bold text-sm">{hoveredHex.count}</span>
                   </div>
                   
                   <div className="flex justify-between items-center gap-6">
-                    <span className="text-gray-400 text-xs">% of All Shots</span>
+                    <span className="text-muted-foreground text-xs">% of All Shots</span>
                     <span className="text-white font-bold text-sm">
                       {((hoveredHex.count / hoveredHex.totalShots) * 100).toFixed(1)}%
                     </span>
@@ -843,7 +856,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                     <>
                       <div className="h-px bg-gray-700 my-2" />
                       <div className="flex justify-between items-center gap-6">
-                        <span className="text-gray-400 text-xs">Goals</span>
+                        <span className="text-muted-foreground text-xs">Goals</span>
                         <span className="text-blue-500 font-bold text-sm">{hoveredHex.goals}</span>
                       </div>
                     </>
@@ -851,21 +864,21 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                   
                   {hoveredHex.shotsOnGoal > 0 && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Shots on Goal</span>
+                      <span className="text-muted-foreground text-xs">Shots on Goal</span>
                       <span className="text-green-500 text-sm">{hoveredHex.shotsOnGoal}</span>
                     </div>
                   )}
                   
                   {hoveredHex.missed > 0 && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Missed</span>
+                      <span className="text-muted-foreground text-xs">Missed</span>
                       <span className="text-yellow-500 text-sm">{hoveredHex.missed}</span>
                     </div>
                   )}
                   
                   {hoveredHex.blocked > 0 && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Blocked</span>
+                      <span className="text-muted-foreground text-xs">Blocked</span>
                       <span className="text-orange-500 text-sm">{hoveredHex.blocked}</span>
                     </div>
                   )}
@@ -874,7 +887,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                     <>
                       <div className="h-px bg-gray-700 my-2" />
                       <div className="flex justify-between items-center gap-6">
-                        <span className="text-gray-400 text-xs">Shooting %</span>
+                        <span className="text-muted-foreground text-xs">Shooting %</span>
                         <span className="text-blue-400 text-sm">
                           {((hoveredHex.goals / hoveredHex.shotsOnGoal) * 100).toFixed(1)}%
                         </span>
@@ -887,13 +900,13 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
               <>
                 {/* Header - Game Info */}
                 {hoveredShot.Player_Team && hoveredShot.Opponent && (
-                  <div className="mb-3 pb-2 border-b border-gray-700 flex items-start justify-between">
+                  <div className="mb-3 pb-2 border-b border-border flex items-start justify-between">
                     <div>
                       <div className="text-white font-bold text-sm">
                         {String(hoveredShot.Player_Team)} vs {String(hoveredShot.Opponent)}
                       </div>
                       {hoveredShot.Game_Date && (
-                        <div className="text-gray-400 text-xs mt-1">
+                        <div className="text-muted-foreground text-xs mt-1">
                           {hoveredShot.Game_Date}
                         </div>
                       )}
@@ -916,7 +929,7 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                   
                   {hoveredShot.Shot_Type && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Shot Type</span>
+                      <span className="text-muted-foreground text-xs">Shot Type</span>
                       <span className="text-white font-bold text-sm">
                         {String(hoveredShot.Shot_Type).charAt(0).toUpperCase() + String(hoveredShot.Shot_Type).slice(1).toLowerCase()}
                       </span>
@@ -925,15 +938,15 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                   
                   {hoveredShot.Strength && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Strength</span>
-                      <span className="text-gray-300 text-sm">{String(hoveredShot.Strength)}</span>
+                      <span className="text-muted-foreground text-xs">Strength</span>
+                      <span className="text-foreground text-sm">{String(hoveredShot.Strength)}</span>
                     </div>
                   )}
                   
                   {hoveredShot.Dist_To_Net_Ft !== undefined && hoveredShot.Dist_To_Net_Ft !== null && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Distance</span>
-                      <span className="text-gray-300 text-sm">{Number(hoveredShot.Dist_To_Net_Ft).toFixed(1)} ft</span>
+                      <span className="text-muted-foreground text-xs">Distance</span>
+                      <span className="text-foreground text-sm">{Number(hoveredShot.Dist_To_Net_Ft).toFixed(1)} ft</span>
                     </div>
                   )}
                   
@@ -941,22 +954,22 @@ export function IceRinkVisualization({ playerId, gameId, gamelogs: parentGamelog
                     <>
                       <div className="h-px bg-gray-700 my-2" />
                       <div className="flex justify-between items-center gap-6">
-                        <span className="text-gray-400 text-xs">Goalie</span>
-                        <span className="text-gray-300 text-sm">{String(hoveredShot.Goalie_Name)}</span>
+                        <span className="text-muted-foreground text-xs">Goalie</span>
+                        <span className="text-foreground text-sm">{String(hoveredShot.Goalie_Name)}</span>
                       </div>
                     </>
                   )}
                   
                   {hoveredShot.Period !== undefined && hoveredShot.Time && (
                     <div className="flex justify-between items-center gap-6">
-                      <span className="text-gray-400 text-xs">Period/Time</span>
+                      <span className="text-muted-foreground text-xs">Period/Time</span>
                       <span className="text-blue-400 text-sm">P{String(hoveredShot.Period)} - {String(hoveredShot.Time)}</span>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="text-sm text-gray-500 text-center flex items-center justify-center h-[148px]">
+              <div className="text-sm text-muted-foreground text-center flex items-center justify-center h-[148px]">
                 {viewMode === 'zones' ? 'Hover over a zone to see detailed statistics' : viewMode === 'heatmap' ? 'Hover over a hexagon to see zone statistics' : 'Hover over a shot to see details'}
               </div>
             )}

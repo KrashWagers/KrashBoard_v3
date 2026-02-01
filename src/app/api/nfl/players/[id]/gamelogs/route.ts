@@ -12,6 +12,7 @@ const bigquery = new BigQuery(
 )
 
 const PLAYER_GAMELOGS_TTL = 24 * 60 // 24 hours in minutes
+const DAILY_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=3600'
 
 async function fetchPlayerGamelogsFromBigQuery(playerId: string) {
   logger.debug(`Fetching gamelogs for player ${playerId} from BigQuery`)
@@ -308,15 +309,22 @@ export async function GET(
       serverCache.set(cacheKey, gamelogs, PLAYER_GAMELOGS_TTL)
     }
 
-    return NextResponse.json({
-      data: gamelogs,
-      playerId,
-      cache: {
-        status: serverCache.has(cacheKey) ? 'hit' : 'miss',
-        timestamp: Date.now(),
-        ttl: PLAYER_GAMELOGS_TTL,
+    return NextResponse.json(
+      {
+        data: gamelogs,
+        playerId,
+        cache: {
+          status: serverCache.has(cacheKey) ? 'hit' : 'miss',
+          timestamp: Date.now(),
+          ttl: PLAYER_GAMELOGS_TTL,
+        },
       },
-    })
+      {
+        headers: {
+          'Cache-Control': DAILY_CACHE_CONTROL,
+        },
+      }
+    )
   } catch (error) {
     logger.error('Failed to fetch player gamelogs', error)
     return NextResponse.json(

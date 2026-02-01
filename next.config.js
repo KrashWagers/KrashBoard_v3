@@ -17,9 +17,21 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'a.espncdn.com',
+        port: '',
+        pathname: '/i/headshots/nhl/players/full/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'assets.nhle.com',
         port: '',
         pathname: '/mugs/nhl/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.nhle.com',
+        port: '',
+        pathname: '/logos/nhl/**',
       },
     ],
   },

@@ -10,6 +10,8 @@ const nhlBigQuery = new BigQuery(
   )
 )
 
+const DAILY_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=3600'
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -39,7 +41,14 @@ export async function GET(
 
     const [rows] = await nhlBigQuery.query(options)
 
-    return NextResponse.json({ data: rows, count: rows.length })
+    return NextResponse.json(
+      { data: rows, count: rows.length },
+      {
+        headers: {
+          'Cache-Control': DAILY_CACHE_CONTROL,
+        },
+      }
+    )
   } catch (error) {
     logger.error('Failed to fetch player vs opponent data', error)
     return NextResponse.json(

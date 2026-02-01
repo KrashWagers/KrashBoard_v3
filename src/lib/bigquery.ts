@@ -17,6 +17,7 @@ export function getBigQueryConfig(projectId: string, keyEnvVar: string) {
     try {
       return {
         projectId,
+        location: 'US',
         credentials: JSON.parse(keyValue),
       }
     } catch (error) {
@@ -26,6 +27,7 @@ export function getBigQueryConfig(projectId: string, keyEnvVar: string) {
     // File path for local development
     return {
       projectId,
+      location: 'US',
       keyFilename: keyValue,
     }
   }
@@ -46,6 +48,7 @@ export const TABLES = {
 
 // Lazy initialization of BigQuery client to avoid errors during build time
 let bigqueryInstance: BigQuery | null = null
+let nhlBigqueryInstance: BigQuery | null = null
 
 function getBigQueryClient(): BigQuery {
   if (!bigqueryInstance) {
@@ -57,6 +60,18 @@ function getBigQueryClient(): BigQuery {
     )
   }
   return bigqueryInstance
+}
+
+function getNhlBigQueryClient(): BigQuery {
+  if (!nhlBigqueryInstance) {
+    nhlBigqueryInstance = new BigQuery(
+      getBigQueryConfig(
+        process.env.NHL_GCP_PROJECT_ID || 'nhl25-473523',
+        'NHL_GCP_KEY_FILE'
+      )
+    )
+  }
+  return nhlBigqueryInstance
 }
 
 // Generic query function
@@ -74,6 +89,25 @@ export async function queryBigQuery<T = unknown>(
   } catch (error) {
     logger.error('BigQuery query failed', error)
     throw new Error(`BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export async function queryNhlBigQuery<T = unknown>(
+  query: string,
+  params?: Record<string, any>,
+  options?: { maxResults?: number; timeoutMs?: number }
+): Promise<T[]> {
+  try {
+    const bigquery = getNhlBigQueryClient()
+    const [rows] = await bigquery.query({
+      query,
+      params,
+      ...options,
+    })
+    return rows as T[]
+  } catch (error) {
+    logger.error('NHL BigQuery query failed', error)
+    throw new Error(`NHL BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

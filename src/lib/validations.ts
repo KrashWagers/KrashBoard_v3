@@ -53,6 +53,12 @@ export const nflPlayersFilterSchema = z.object({
   search: z.string().max(100).optional(),
 })
 
+// NHL players filter schema
+export const nhlPlayersFilterSchema = z.object({
+  team: z.string().max(10).optional(),
+  search: z.string().max(100).optional(),
+})
+
 // Matchups filter schema
 export const matchupsFilterSchema = z.object({
   season: seasonSchema.default(2024),

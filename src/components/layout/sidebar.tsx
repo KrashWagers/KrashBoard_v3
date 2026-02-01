@@ -13,6 +13,7 @@ import {
   Target, 
   TrendingUp,
   Users,
+  Activity,
   Settings,
   Menu,
   X
@@ -45,6 +46,15 @@ const navigation: NavItem[] = [
       { title: "TD Report", href: "/nfl/tools/touchdown-report", icon: TrendingUp },
       { title: "Correlation", href: "/nfl/tools/reverse-correlation", icon: BarChart3 },
       { title: "Parlay Builder", href: "/nfl/tools/parlay-builder", icon: Calculator },
+    ],
+  },
+  {
+    title: "NHL",
+    href: "/nhl",
+    icon: Activity,
+    children: [
+      { title: "Scores", href: "/nhl/scores", icon: Activity },
+      { title: "Prop Lab", href: "/nhl/tools/prop-lab", icon: Calculator },
     ],
   },
   {

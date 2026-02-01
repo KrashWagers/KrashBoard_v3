@@ -10,34 +10,25 @@ const nhlBigQuery = new BigQuery(
   )
 )
 
+const DAILY_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=3600'
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    
-    // First, get player name from gamelogs
-    const playerQuery = `
-      SELECT player_name
-      FROM \`nhl25-473523.gold.player_gamelogs_all_vw\`
-      WHERE player_id = @player_id
-      LIMIT 1
-    `
-    
-    const [playerRows] = await nhlBigQuery.query({
-      query: playerQuery,
-      params: { player_id: parseInt(id) }
-    })
-    
-    const playerName = playerRows[0]?.player_name
-    logger.debug('Looking for player', { playerId: id, playerName })
-    if (!playerName) {
-      return NextResponse.json({ data: [], count: 0 })
-    }
-    
-    // Query standardized shots view - remove player filter temporarily to debug
+
     const query = `
+      WITH player AS (
+        SELECT
+          player_name,
+          MIN(game_date) AS min_game_date
+        FROM \`nhl25-473523.gold.player_gamelogs_all_vw\`
+        WHERE player_id = @player_id
+        GROUP BY player_name
+        LIMIT 1
+      )
       SELECT 
         Game_ID,
         Season_ID,
@@ -73,14 +64,15 @@ export async function GET(
         Is_Blocked,
         Sec_In_Period,
         Sec_In_Game
-      FROM \`nhl25-473523.silver.v_shots_standardized\`
-      WHERE Player_Name LIKE '%' || @player_name || '%'
+      FROM \`nhl25-473523.silver.v_shots_standardized\` shots
+      JOIN player ON shots.Player_Name = player.player_name
+      WHERE shots.Game_Date >= player.min_game_date
       ORDER BY Game_Date DESC, Sec_In_Game
     `
 
     const options = {
       query,
-      params: { player_name: playerName }
+      params: { player_id: parseInt(id) }
     }
 
     const [rows] = await nhlBigQuery.query(options)
@@ -97,7 +89,14 @@ export async function GET(
         : row.Game_Date
     }))
 
-    return NextResponse.json({ data: formattedRows, count: formattedRows.length })
+    return NextResponse.json(
+      { data: formattedRows, count: formattedRows.length },
+      {
+        headers: {
+          'Cache-Control': DAILY_CACHE_CONTROL,
+        },
+      }
+    )
   } catch (error) {
     logger.error('Failed to fetch play by play data', error)
     return NextResponse.json(

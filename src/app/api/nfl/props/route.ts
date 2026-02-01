@@ -42,6 +42,8 @@ const bigquery = new BigQuery(
   )
 )
 
+const ODDS_CACHE_CONTROL = 'public, s-maxage=120, stale-while-revalidate=60'
+
 // Fetch data from BigQuery
 async function fetchPlayerPropsFromBigQuery() {
   const query = `
@@ -141,22 +143,29 @@ export async function GET(request: NextRequest) {
     const paginatedData = allData.slice(offset, offset + limit)
     const total = allData.length
 
-    return NextResponse.json({
-      data: paginatedData,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+    return NextResponse.json(
+      {
+        data: paginatedData,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrev: page > 1,
+        },
+        cacheInfo: {
+          cached: true,
+          cacheTimestamp: serverCache.getInfo(CACHE_KEYS.PLAYER_PROPS)?.timestamp,
+          cacheExpiresAt: serverCache.getInfo(CACHE_KEYS.PLAYER_PROPS)?.expiresAt,
+        },
       },
-      cacheInfo: {
-        cached: true,
-        cacheTimestamp: serverCache.getInfo(CACHE_KEYS.PLAYER_PROPS)?.timestamp,
-        cacheExpiresAt: serverCache.getInfo(CACHE_KEYS.PLAYER_PROPS)?.expiresAt
+      {
+        headers: {
+          'Cache-Control': ODDS_CACHE_CONTROL,
+        },
       }
-    })
+    )
   } catch (error) {
     logger.error('Failed to fetch player props', error)
     return NextResponse.json(
