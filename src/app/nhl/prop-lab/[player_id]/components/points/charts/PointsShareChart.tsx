@@ -50,6 +50,8 @@ function PointsShareTooltip({ active, payload }: PointsShareTooltipProps) {
 }
 
 export function PointsShareChart({ chartData }: PointsShareChartProps) {
+  type RollingEntry = ChartData & { sharePct?: number; share_avg_5?: number; share_avg_20?: number }
+
   const rollingData = useMemo(() => {
     const pointsShare = chartData.map((item) => {
       const teamGoals = item.team_goals ?? 0
@@ -58,12 +60,12 @@ export function PointsShareChart({ chartData }: PointsShareChartProps) {
       return { ...item, sharePct }
     })
 
-    const rollingAverage = (data: typeof pointsShare, window: number, key: "share_avg_5" | "share_avg_20") =>
+    const rollingAverage = (data: RollingEntry[], window: number, key: "share_avg_5" | "share_avg_20") =>
       data.map((_, index) => {
         const start = Math.max(0, index - window + 1)
         const subset = data.slice(start, index + 1)
         const avg = subset.reduce((sum, d) => sum + (d.sharePct ?? 0), 0) / subset.length
-        return { ...data[index], [key]: avg }
+        return { ...data[index], [key]: avg } as RollingEntry
       })
 
     const withAvg5 = rollingAverage(pointsShare, 5, "share_avg_5")
