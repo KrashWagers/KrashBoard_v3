@@ -11,6 +11,8 @@ const nhlBigQuery = new BigQuery(
   )
 )
 
+type PlayerGamelogRow = Record<string, unknown>
+
 const PLAYER_GAMELOGS_TTL = 24 * 60 // 24 hours in minutes
 const DAILY_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=3600'
 
@@ -91,7 +93,7 @@ export async function GET(
     const cacheKey = `nhl_player_gamelogs_${playerId}`
     
     // Check cache first
-    let gamelogs = serverCache.get(cacheKey)
+    let gamelogs = serverCache.get(cacheKey) as PlayerGamelogRow[] | undefined
     
     if (!gamelogs) {
       // Fetch from BigQuery if not in cache
@@ -99,9 +101,10 @@ export async function GET(
       serverCache.set(cacheKey, gamelogs, PLAYER_GAMELOGS_TTL)
     }
 
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : gamelogs.length
+    const resolvedGamelogs = Array.isArray(gamelogs) ? gamelogs : []
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : resolvedGamelogs.length
     const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
-    const paginated = gamelogs.slice(safeOffset, safeOffset + safeLimit)
+    const paginated = resolvedGamelogs.slice(safeOffset, safeOffset + safeLimit)
 
     return NextResponse.json(
       {
@@ -110,7 +113,7 @@ export async function GET(
         pagination: {
           limit: safeLimit,
           offset: safeOffset,
-          total: gamelogs.length,
+          total: resolvedGamelogs.length,
         },
         cache: {
           status: serverCache.has(cacheKey) ? 'hit' : 'miss',
