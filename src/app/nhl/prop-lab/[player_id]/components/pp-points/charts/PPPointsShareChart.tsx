@@ -88,7 +88,7 @@ export function PPPointsShareChart({ chartData }: PPPointsShareChartProps) {
               stackId="a"
               name="PP_SOG"
               fill="#38bdf8"
-              shape={(props) => <StackedBarShape {...props} kind="sog" />}
+              shape={(props: BarShapeProps) => <StackedBarShape {...props} kind="sog" />}
               isAnimationActive={false}
             >
               <LabelList
@@ -104,7 +104,7 @@ export function PPPointsShareChart({ chartData }: PPPointsShareChartProps) {
               name="PP_SAT"
               fill="#1e3a8a"
               fillOpacity={0.45}
-              shape={(props) => <StackedBarShape {...props} kind="sat" />}
+              shape={(props: BarShapeProps) => <StackedBarShape {...props} kind="sat" />}
               isAnimationActive={false}
             >
               <LabelList
