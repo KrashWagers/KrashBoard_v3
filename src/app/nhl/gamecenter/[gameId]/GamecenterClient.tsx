@@ -124,6 +124,12 @@ function formatStartTime(startTimeUTC?: string): string {
   }).format(date)
 }
 
+function getDisplayText(value?: { default?: string } | string): string | undefined {
+  if (!value) return undefined
+  if (typeof value === 'string') return value
+  return value.default
+}
+
 function formatPeriodLabel(periodDescriptor?: { number?: number; periodType?: string }): string {
   if (periodDescriptor?.periodType === 'SO') return 'SO'
   if (periodDescriptor?.periodType === 'OT') return 'OT'
@@ -1016,9 +1022,9 @@ export default function GamecenterClient({ gameId }: GamecenterClientProps) {
                               key={`penalty-${penaltyIndex}`}
                               className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-gray-700/70 bg-black/20 p-3 text-xs text-muted-foreground"
                             >
-                              <span>{penalty.teamAbbrev?.default || penalty.teamAbbrev || '--'}</span>
+                              <span>{getDisplayText(penalty.teamAbbrev) || '--'}</span>
                               <span>{penalty.timeInPeriod || '--:--'}</span>
-                              <span className="text-foreground">{penalty.committedBy?.default || penalty.committedBy || ''}</span>
+                              <span className="text-foreground">{getDisplayText(penalty.committedBy) || ''}</span>
                               <span>{penalty.description || 'Penalty'}</span>
                             </div>
                           ))}
