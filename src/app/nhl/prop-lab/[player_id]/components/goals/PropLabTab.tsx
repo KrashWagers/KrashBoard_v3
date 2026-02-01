@@ -62,6 +62,15 @@ export function PropLabTab({
   opponentPayload,
   opponentTeam
 }: PropLabTabProps) {
+  const getOpponentLabel = (value: unknown): string | undefined => {
+    if (typeof value === "string") return value
+    if (value && typeof value === "object" && "default" in value) {
+      const candidate = (value as { default?: unknown }).default
+      return typeof candidate === "string" ? candidate : undefined
+    }
+    return undefined
+  }
+
   // Process chart data
   const chartData = useMemo(() => processChartData(gamelogs), [gamelogs])
 
@@ -310,7 +319,9 @@ export function PropLabTab({
                           ? game.game_date.toISOString().slice(0, 10)
                           : (game as unknown as { formattedDate?: string }).formattedDate ?? '—'}
                     </TableCell>
-                    <TableCell className="text-xs font-medium">{game.opp ?? game.opponent ?? '—'}</TableCell>
+                    <TableCell className="text-xs font-medium">
+                      {getOpponentLabel(game.opp) ?? getOpponentLabel(game.opponent) ?? '—'}
+                    </TableCell>
                     <TableCell className="text-xs">{game.goals ?? 0}</TableCell>
                     <TableCell className="text-xs">{game.assists ?? 0}</TableCell>
                     <TableCell className="text-xs">{game.points ?? 0}</TableCell>
