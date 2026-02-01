@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added - Auth Foundations
 - Added Supabase auth flow with login page (Google + email/password), auth callback handler, and sidebar sign-in/sign-out control.
 - Added middleware protection so only the main home page is public while all other routes require authentication.
+- Added admin-only routing for `/admin` paths plus an auth/admin guide for future gating.
 
 ### Added - MLB Section Scaffolding
 - Added MLB route group with placeholder pages for Home, Scores, Lineups, Weather Report, Prop Lab, Market, Tools, Team, and Player sections.

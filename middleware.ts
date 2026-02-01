@@ -16,6 +16,8 @@ const PUBLIC_PREFIXES = [
   "/sitemap.xml",
 ]
 
+const isAdminPath = (pathname: string) => pathname.startsWith("/admin")
+
 const isPublicPath = (pathname: string) => {
   if (PUBLIC_PATHS.includes(pathname)) return true
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
@@ -60,6 +62,18 @@ export async function middleware(request: NextRequest) {
   if (!data.user) {
     const loginUrl = new URL("/login", request.url)
     return NextResponse.redirect(loginUrl)
+  }
+
+  if (isAdminPath(pathname)) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .single()
+
+    if (profile?.role !== "admin") {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
   }
 
   return response
