@@ -38,6 +38,17 @@ export function GamelogsTab({ gamelogs, allGamelogs }: GamelogsTabProps) {
   const [gameTimeFilter, setGameTimeFilter] = useState<string>('all')
   const [dayOfWeekFilter, setDayOfWeekFilter] = useState<string>('all')
   const [daysRestFilter, setDaysRestFilter] = useState<string>('all')
+
+  const parseGameDate = (value: unknown): Date | null => {
+    if (typeof value === 'string') {
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value
+    }
+    return null
+  }
   const [toiMin, setToiMin] = useState<string>('')
   const [toiMax, setToiMax] = useState<string>('')
   const [goalsMin, setGoalsMin] = useState<string>('')
@@ -75,11 +86,8 @@ export function GamelogsTab({ gamelogs, allGamelogs }: GamelogsTabProps) {
     if (dateRangeStart) {
       filtered = filtered.filter(game => {
         try {
-          const gameDate = typeof game.game_date === 'string' 
-            ? new Date(game.game_date) 
-            : game.game_date instanceof Date 
-              ? game.game_date 
-              : new Date(game.game_date as string | Date)
+          const gameDate = parseGameDate(game.game_date)
+          if (!gameDate) return true
           const startDate = new Date(dateRangeStart)
           return gameDate >= startDate
         } catch {
@@ -91,11 +99,8 @@ export function GamelogsTab({ gamelogs, allGamelogs }: GamelogsTabProps) {
     if (dateRangeEnd) {
       filtered = filtered.filter(game => {
         try {
-          const gameDate = typeof game.game_date === 'string' 
-            ? new Date(game.game_date) 
-            : game.game_date instanceof Date 
-              ? game.game_date 
-              : new Date(game.game_date as string | Date)
+          const gameDate = parseGameDate(game.game_date)
+          if (!gameDate) return true
           const endDate = new Date(dateRangeEnd)
           endDate.setHours(23, 59, 59, 999)
           return gameDate <= endDate
