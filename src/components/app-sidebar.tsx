@@ -10,6 +10,8 @@ import {
   TrendingUp,
   Users,
   Settings,
+  LogIn,
+  LogOut,
   ChevronDown,
   Zap,
   Percent,
@@ -36,6 +38,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import {
   Collapsible,
   CollapsibleContent,
@@ -288,10 +291,38 @@ const sports: SportNav[] = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const [userEmail, setUserEmail] = React.useState<string | null>(null)
+  const [authLoading, setAuthLoading] = React.useState(false)
   const activeSport =
     sports.find((sport) => pathname.startsWith(sport.root)) ?? sports[0]
   const isActivePath = (url: string, exact = false) =>
     exact ? pathname === url : pathname === url || pathname.startsWith(`${url}/`)
+
+  React.useEffect(() => {
+    const supabase = createSupabaseBrowserClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleSignOut = async () => {
+    setAuthLoading(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      await supabase.auth.signOut()
+      setUserEmail(null)
+    } finally {
+      setAuthLoading(false)
+    }
+  }
 
   return (
     <Sidebar>
@@ -627,6 +658,21 @@ export function AppSidebar() {
                 <span>Settings</span>
               </Link>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            {userEmail ? (
+              <SidebarMenuButton onClick={handleSignOut} disabled={authLoading}>
+                <LogOut />
+                <span>{authLoading ? "Signing out..." : "Sign out"}</span>
+              </SidebarMenuButton>
+            ) : (
+              <SidebarMenuButton asChild>
+                <Link href="/login">
+                  <LogIn />
+                  <span>Sign in</span>
+                </Link>
+              </SidebarMenuButton>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
