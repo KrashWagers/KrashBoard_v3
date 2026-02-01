@@ -351,10 +351,10 @@ export const calculateTrendLine = <T extends ChartData>(
     return typeof val === 'number' ? val : 0
   })
   
-  const sumX = xValues.reduce((a, b) => a + b, 0)
-  const sumY = yValues.reduce((a, b) => a + b, 0)
-  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i]!, 0)
-  const sumXX = xValues.reduce((sum, x) => sum + x * x, 0)
+  const sumX = xValues.reduce<number>((a, b) => a + b, 0)
+  const sumY = yValues.reduce<number>((a, b) => a + b, 0)
+  const sumXY = xValues.reduce<number>((sum, x, i) => sum + x * yValues[i]!, 0)
+  const sumXX = xValues.reduce<number>((sum, x) => sum + x * x, 0)
   
   const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
   const b = (sumY - m * sumX) / n
