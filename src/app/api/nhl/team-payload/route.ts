@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
 import { getLatestTeamPayload, getLatestTeamPayloads, normalizeTeamAbbr } from "@/lib/nhl/teamPayload"
 
-export const revalidate = 60 * 60
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const teamParam = searchParams.get("team")

@@ -5,8 +5,6 @@ import { getLatestTeamPayload, normalizeTeamAbbr } from "@/lib/nhl/teamPayload"
 import type { TeamGameLog, TeamRankingSplit } from "@/types/nhlTeamPayload"
 import { TeamSelector } from "./TeamSelector"
 
-export const revalidate = 60 * 60
-
 interface TeamPageProps {
   params: {
     team: string

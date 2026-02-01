@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { TeamPayloadRow } from "@/types/nhlTeamPayload"
 
 interface PlayerGamelog {
+  [key: string]: number | string | undefined
   season_id: string
   game_id: string
   game_date: string
@@ -720,7 +721,8 @@ export default function NHLPlayerPropDashboard() {
     const field = getPropField(selectedProp.propName)
     
     const results = filteredGamelogs.map(game => {
-      const value = game[field] || 0
+      const rawValue = game[field]
+      const value = typeof rawValue === 'number' ? rawValue : 0
       // For Over: need value > line, for Under: need value < line
       const hit = isOver ? value > line : value < line
       return { value, hit, game }
@@ -740,7 +742,11 @@ export default function NHLPlayerPropDashboard() {
   const seasonAvg = useMemo(() => {
     if (!selectedProp || !gamelogs.length) return null
     const field = getPropField(selectedProp.propName)
-    const total = gamelogs.reduce((sum, game) => sum + (game[field] || 0), 0)
+    const total = gamelogs.reduce((sum, game) => {
+      const rawValue = game[field]
+      const value = typeof rawValue === 'number' ? rawValue : 0
+      return sum + value
+    }, 0)
     return gamelogs.length > 0 ? total / gamelogs.length : 0
   }, [selectedProp, gamelogs])
 
@@ -827,7 +833,7 @@ export default function NHLPlayerPropDashboard() {
       })
     }
 
-    const lineMap = new Map<number, { line: number; books: { book: string; odds: number; iw: number }[]; bestOdds: number | null; bestBook: string | null }>()
+    const lineMap = new Map<number, { line: number; books: { bookmaker: string; price_american: number; implied_win_pct?: number }[]; bestOdds: number | null; bestBook: { bookmaker: string; price_american: number } | null }>()
     propLines.forEach((prop) => {
       const lineValue = typeof prop.line === 'number' ? prop.line : null
       if (lineValue === null) return
@@ -847,30 +853,30 @@ export default function NHLPlayerPropDashboard() {
       const books = prop.books || {}
       Object.entries(books).forEach(([book, bookData]) => {
         lineData.books.push({
-          book,
-          odds: bookData.odds,
-          iw: bookData.iw,
+          bookmaker: book,
+          price_american: bookData.odds,
+          implied_win_pct: bookData.iw,
         })
       })
 
       if (lineData.books.length === 0 && prop.best?.odds != null && prop.best.book) {
         lineData.books.push({
-          book: prop.best.book,
-          odds: prop.best.odds,
-          iw: prop.best.iw ?? 0,
+          bookmaker: prop.best.book,
+          price_american: prop.best.odds,
+          implied_win_pct: prop.best.iw ?? 0,
         })
       }
 
-      if (prop.best?.odds != null) {
+      if (prop.best?.odds != null && prop.best.book) {
         if (lineData.bestOdds == null || prop.best.odds > lineData.bestOdds) {
           lineData.bestOdds = prop.best.odds
-          lineData.bestBook = prop.best.book
+          lineData.bestBook = { bookmaker: prop.best.book, price_american: prop.best.odds }
         }
       }
     })
 
     lineMap.forEach((lineData) => {
-      lineData.books.sort((a, b) => b.odds - a.odds)
+      lineData.books.sort((a, b) => b.price_american - a.price_american)
     })
 
     return Array.from(lineMap.values()).sort((a, b) => a.line - b.line)
@@ -1122,7 +1128,7 @@ export default function NHLPlayerPropDashboard() {
                   const smallerLogos = ['BOS', 'BUF', 'CAR', 'CGY', 'EDM', 'FLA', 'PIT', 'SEA', 'TB', 'VAN', 'VGK']
                   const isSmaller = smallerLogos.includes(team)
                   const logoSize = isSmaller ? 40 : 48
-                  const isPlayerTeam = playerTeam && team === playerTeam
+                  const isPlayerTeam = playerTeam ? team === playerTeam : false
                   
                   return (
                     <button
@@ -1438,16 +1444,22 @@ export default function NHLPlayerPropDashboard() {
                   const underOdds = underProp?.best?.odds ?? getFallbackBookOdds(underProp)
                   const normalizeBookKey = (name: string) => name.toLowerCase().replace(/\\s+/g, '')
                   const preferredBooks = ['fanduel', 'draftkings', 'betmgm']
-                  const resolveBestOdds = (books: { book: string; odds: number }[], fallback: number | null) => {
+                  const resolveBestOdds = (
+                    books: { bookmaker: string; price_american: number; implied_win_pct?: number }[],
+                    fallback: number | null
+                  ) => {
                     if (fallback !== null && fallback !== undefined) return fallback
                     if (!books.length) return null
-                    return Math.max(...books.map((book) => book.odds))
+                    return Math.max(...books.map((book) => book.price_american))
                   }
-                  const getBestBook = (books: { book: string; odds: number }[], bestOdds: number | null) => {
+                  const getBestBook = (
+                    books: { bookmaker: string; price_american: number; implied_win_pct?: number }[],
+                    bestOdds: number | null
+                  ) => {
                     if (!books.length) return null
-                    if (bestOdds === null || bestOdds === undefined) return books[0]?.book ?? null
-                    const bestBooks = books.filter((book) => book.odds === bestOdds)
-                    if (bestBooks.length === 0) return books[0]?.book ?? null
+                    if (bestOdds === null || bestOdds === undefined) return books[0]?.bookmaker ?? null
+                    const bestBooks = books.filter((book) => book.price_american === bestOdds)
+                    if (bestBooks.length === 0) return books[0]?.bookmaker ?? null
                     const priorityIndex = (book: string) => {
                       const key = normalizeBookKey(book)
                       const idx = preferredBooks.indexOf(key)
@@ -1455,11 +1467,11 @@ export default function NHLPlayerPropDashboard() {
                     }
                     return bestBooks
                       .slice()
-                      .sort((a, b) => priorityIndex(a.book) - priorityIndex(b.book))[0]
-                      ?.book ?? null
+                      .sort((a, b) => priorityIndex(a.bookmaker) - priorityIndex(b.bookmaker))[0]
+                      ?.bookmaker ?? null
                   }
                   const orderBooksForDisplay = (
-                    books: { book: string; odds: number }[],
+                    books: { bookmaker: string; price_american: number; implied_win_pct?: number }[],
                     bestOdds: number | null
                   ) => {
                     if (!books.length) return books
@@ -1469,14 +1481,14 @@ export default function NHLPlayerPropDashboard() {
                       return idx === -1 ? Number.MAX_SAFE_INTEGER : idx
                     }
                     return books.slice().sort((a, b) => {
-                      const aIsBest = bestOdds !== null && a.odds === bestOdds
-                      const bIsBest = bestOdds !== null && b.odds === bestOdds
+                      const aIsBest = bestOdds !== null && a.price_american === bestOdds
+                      const bIsBest = bestOdds !== null && b.price_american === bestOdds
                       if (aIsBest && !bIsBest) return -1
                       if (!aIsBest && bIsBest) return 1
                       if (aIsBest && bIsBest) {
-                        return priorityIndex(a.book) - priorityIndex(b.book)
+                        return priorityIndex(a.bookmaker) - priorityIndex(b.bookmaker)
                       }
-                      return priorityIndex(a.book) - priorityIndex(b.book)
+                      return priorityIndex(a.bookmaker) - priorityIndex(b.bookmaker)
                     })
                   }
 
@@ -1539,12 +1551,12 @@ export default function NHLPlayerPropDashboard() {
                               <div className="ml-auto flex items-center gap-2">
                                 <div className="flex items-center -space-x-2">
                                   {displayBooks.map((book, idx) => {
-                                    const bookLogoPath = getBookmakerLogo(book.book)
+                                    const bookLogoPath = getBookmakerLogo(book.bookmaker)
                                     if (!bookLogoPath) return null
                                     const isPrimary = idx === 0
                                     return (
                                       <div
-                                        key={`${book.book}-${idx}`}
+                                        key={`${book.bookmaker}-${idx}`}
                                         className={
                                           isPrimary
                                             ? 'w-8 h-8 rounded-sm border border-gray-600 bg-transparent flex items-center justify-center overflow-hidden'
@@ -1554,7 +1566,7 @@ export default function NHLPlayerPropDashboard() {
                                       >
                                         <Image
                                           src={bookLogoPath}
-                                          alt={book.book}
+                                          alt={book.bookmaker}
                                           width={isPrimary ? 32 : 24}
                                           height={isPrimary ? 32 : 24}
                                           className="object-contain"
@@ -1624,12 +1636,12 @@ export default function NHLPlayerPropDashboard() {
                                         <div className="ml-auto flex items-center gap-2">
                                           <div className="flex items-center -space-x-2">
                                             {lineDisplayBooks.map((book, idx) => {
-                                              const bookLogoPath = getBookmakerLogo(book.book)
+                                              const bookLogoPath = getBookmakerLogo(book.bookmaker)
                                               if (!bookLogoPath) return null
                                               const isPrimary = idx === 0
                                               return (
                                                 <div
-                                                  key={`${lineData.line}-${book.book}-${idx}`}
+                                                  key={`${lineData.line}-${book.bookmaker}-${idx}`}
                                                   className={
                                                     isPrimary
                                                       ? 'w-8 h-8 rounded-sm border border-gray-600 bg-transparent flex items-center justify-center overflow-hidden'
@@ -1639,7 +1651,7 @@ export default function NHLPlayerPropDashboard() {
                                                 >
                                                   <Image
                                                     src={bookLogoPath}
-                                                    alt={book.book}
+                                                    alt={book.bookmaker}
                                                     width={isPrimary ? 32 : 24}
                                                     height={isPrimary ? 32 : 24}
                                                     className="object-contain"
@@ -1662,17 +1674,17 @@ export default function NHLPlayerPropDashboard() {
                                     <TooltipContent className="bg-[#171717] border border-gray-700 p-3">
                                       <div className="grid gap-2">
                                         {lineBooks.map((book, idx) => {
-                                          const tooltipLogo = getBookmakerLogo(book.book)
+                                          const tooltipLogo = getBookmakerLogo(book.bookmaker)
                                           return (
                                             <div
-                                              key={`${lineData.line}-${book.book}-tooltip-${idx}`}
+                                              key={`${lineData.line}-${book.bookmaker}-tooltip-${idx}`}
                                               className="flex items-center gap-2 text-xs"
                                             >
                                               {tooltipLogo ? (
                                                 <div className="w-5 h-5 rounded-sm border border-gray-600 bg-transparent flex items-center justify-center overflow-hidden">
                                                   <Image
                                                     src={tooltipLogo}
-                                                    alt={book.book}
+                                                    alt={book.bookmaker}
                                                     width={20}
                                                     height={20}
                                                     className="object-contain"
@@ -1682,10 +1694,10 @@ export default function NHLPlayerPropDashboard() {
                                                   />
                                                 </div>
                                               ) : (
-                                                <span className="font-medium text-muted-foreground">{book.book}</span>
+                                                <span className="font-medium text-muted-foreground">{book.bookmaker}</span>
                                               )}
                                               <span className="text-foreground font-semibold">
-                                                {book.odds > 0 ? '+' : ''}{book.odds}
+                                                {book.price_american > 0 ? '+' : ''}{book.price_american}
                                               </span>
                                             </div>
                                           )

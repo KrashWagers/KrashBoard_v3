@@ -27,7 +27,12 @@ export function ShotAttemptsByDangerChart({ chartData }: ShotAttemptsByDangerCha
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               width={35}
               domain={getYAxisDomain("sat_HD", chartData)}
-              ticks={getYAxisTicks(Math.max(...chartData.map((d) => d.sat_total ?? 0)), "sat_HD")}
+              ticks={getYAxisTicks(
+                Math.max(
+                  ...chartData.map((d) => (typeof d.sat_total === "number" ? d.sat_total : 0))
+                ),
+                "sat_HD"
+              )}
             />
             <RechartsTooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "5px" }} iconSize={10} />
