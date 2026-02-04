@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { trackerBetInputSchema } from "@/lib/tracker/validators"
+import { trackerBetInputSchema, type TrackerBetInputInferred } from "@/lib/tracker/validators"
 import { calculateImpliedWinPct, calculatePotentialPayout } from "@/lib/tracker/calculations"
 
 const resolveUnitSize = async (supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string) => {
@@ -12,7 +12,7 @@ const resolveUnitSize = async (supabase: Awaited<ReturnType<typeof createSupabas
   return data?.unit_size != null ? Number(data.unit_size) : null
 }
 
-const normalizeBetInput = (input: typeof trackerBetInputSchema._type, unitSize: number | null) => {
+const normalizeBetInput = (input: TrackerBetInputInferred, unitSize: number | null) => {
   const odds = input.odds != null ? Number(input.odds) : -110
   const stakeFromInput = input.dollar_stake != null ? Number(input.dollar_stake) : null
   const unitFromInput = input.unit_stake != null ? Number(input.unit_stake) : null

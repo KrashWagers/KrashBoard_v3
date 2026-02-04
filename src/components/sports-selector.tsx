@@ -4,7 +4,7 @@ import * as React from "react"
 import { ChevronDown } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
-import { useActiveSportId } from "@/hooks/use-active-sport"
+import { useActiveSportId, type SportId } from "@/hooks/use-active-sport"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -59,9 +59,9 @@ export function SportsSelector() {
     ) ??
     sports[0]
 
-  const handleSportSelect = (sport: typeof sports[0]) => {
+  const handleSportSelect = (sport: (typeof sports)[0]) => {
     if (sport.available) {
-      setActiveSportId(sport.id)
+      setActiveSportId(sport.id as SportId)
       router.push(sport.href)
     }
   }

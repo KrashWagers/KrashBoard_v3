@@ -6,7 +6,7 @@ export const trackerResultSchema = z.enum(TRACKER_RESULTS)
 const trimString = z.string().transform((val) => val.trim())
 const optionalString = z.string().transform((val) => val.trim()).optional()
 
-export const trackerBetInputSchema = z.object({
+const trackerBetInputSchemaInner = z.object({
   created_at: z.string().datetime().optional(),
   event_date: z.string().optional(),
   is_parlay: z.boolean().optional(),
@@ -32,8 +32,15 @@ export const trackerBetInputSchema = z.object({
   payout: z.number().finite().optional(),
 })
 
+export const trackerBetInputSchema = trackerBetInputSchemaInner
+export type TrackerBetInputInferred = z.infer<typeof trackerBetInputSchema>
+
 export const trackerBetUpdateSchema = trackerBetInputSchema.partial()
+
+export type TrackerBetUpdateInput = z.infer<typeof trackerBetUpdateSchema>
 
 export const trackerImportSchema = z.object({
   rows: z.array(trackerBetInputSchema).min(1, "Import requires at least one row"),
 })
+
+export type TrackerImportRow = z.infer<typeof trackerBetInputSchema>

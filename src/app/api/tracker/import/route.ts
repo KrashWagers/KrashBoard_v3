@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { trackerImportSchema } from "@/lib/tracker/validators"
+import { trackerImportSchema, type TrackerImportRow } from "@/lib/tracker/validators"
 import { calculateImpliedWinPct, calculatePotentialPayout } from "@/lib/tracker/calculations"
 
 const resolveUnitSize = async (supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string) => {
@@ -12,7 +12,7 @@ const resolveUnitSize = async (supabase: Awaited<ReturnType<typeof createSupabas
   return data?.unit_size != null ? Number(data.unit_size) : null
 }
 
-const normalizeRow = (row: typeof trackerImportSchema._type["rows"][number], unitSize: number | null) => {
+const normalizeRow = (row: TrackerImportRow, unitSize: number | null) => {
   const odds = Number(row.odds)
   const resolvedUnitSize = unitSize && unitSize > 0 ? unitSize : null
   const stake = row.dollar_stake != null ? Number(row.dollar_stake) : null
@@ -50,12 +50,12 @@ const normalizeRow = (row: typeof trackerImportSchema._type["rows"][number], uni
     bonus_bet_value: Number(bonusBetValue.toFixed(2)),
     is_no_sweat: isNoSweat,
     no_sweat_value: Number(noSweatValue.toFixed(2)),
-    sport: row.sport.trim(),
-    sportsbook: row.sportsbook.trim(),
-    event: row.event.trim(),
-    market: row.market.trim(),
+    sport: (row.sport ?? "").trim(),
+    sportsbook: (row.sportsbook ?? "").trim(),
+    event: (row.event ?? "").trim(),
+    market: (row.market ?? "").trim(),
     line: row.line?.trim() ?? "",
-    bet_name: row.bet_name.trim(),
+    bet_name: (row.bet_name ?? "").trim(),
     odds,
     implied_win_pct: Number(impliedWin.toFixed(2)),
     dollar_stake: Number(dollarStake.toFixed(2)),

@@ -407,8 +407,8 @@ export default function TrackerPage() {
         throw new Error(json?.error ?? "Failed to load bets")
       }
       const nextBets = Array.isArray(json.bets)
-        ? json.bets.map((bet, index) => {
-            const raw = bet as Record<string, unknown>
+        ? json.bets.map((bet: Record<string, unknown>, index: number) => {
+            const raw = bet
             const id = raw.id ?? raw.ID ?? raw.Id ?? ""
             return {
               ...bet,

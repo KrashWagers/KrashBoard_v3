@@ -244,7 +244,6 @@ const sports: SportNav[] = [
     name: "NBA",
     root: "/nba",
     homeIcon: "/Images/Icons/basketball.svg",
-    items: [],
   },
   {
     id: "mlb",
