@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2025-10-27
 
+### Added - MLB Pitch Matrix
+- Added the MLB Pitch Matrix tool with Lineups/Batter/Pitcher tabs and a lineup grid that aligns pitcher pitch types across batter rows.
+- Added MLB BVP API routes for team/batter/pitcher payloads with daily cache reset at 4:00 AM America/New_York.
+- Added in-memory cache helper for next-4am TTL and wired Pitch Matrix into MLB sidebar/navigation.
+- Added a row of all 30 MLB team logos (from `public/Images/MLB_Logos/`) on the Matchups tab as quick links; clicking a logo scrolls to that team’s matchup card. Teams in today’s slate are shown at full opacity, others dimmed.
+- Fixed Pitch Matrix logo strip: scroll targets now use `id="team-{abbr}"` so clicks scroll correctly; strip logos use team-colored backgrounds from `mlb-team-colors.json` (matching the game cards below).
+- Pitch Matrix (Matchups + placeholder tabs): all cards use 70% transparent background, soft teal glow border (semi-transparent border + layered box-shadow), and border shadows for depth.
+- Pitch Matrix Batter tab: all batters vs all pitchers in one list sorted by OVR (desc). Pitcher filter: All / Starters (expected starter) / Relievers (RP) via `starter_position`. Uses same transparent card + glow theme; OVR Mode (AVG/HR) shared with Matchups. Lineups and BVP payloads lifted to parent so both tabs share one fetch.
+- Pitch Matrix matchup detail popup: made background opaque (`#171717`) instead of 70% transparent; simplified top section to a single row (batter logo + headshot + name/stance · vs · headshot + name + pitcher logo) with no individual cards so content fits and reads clearly.
+- Pitch Matrix Batter tab: cap rendered rows at 500 to prevent browser freeze when the full list is very large (e.g. 1000+ batter×pitcher matchups); show “Showing top 500 of N” when capped and suggest using Starters/Relievers filter.
+
+- Pitch Matrix: Batter tab preloads in the background as soon as games exist so switching to Batter is instant once payloads are in; batter list computed in parent and passed as rows prop.
+- MLB BVP team API: server-side cache TTL set to fixed 24h so DB is hit at most once per (team, date) per day across all users; added CACHE_TTL_24H_SECONDS in lib/cache.
+
+### Changed - Sidebar Navigation Structure
+- Reorganized the sidebar to keep a global navigation block (Home, Scores, Lineups, Prop Lab, Market, Tracker) and move sport-specific tools below it, with MLB tools aligned to the new batter/pitcher/team stats layout.
+- Switched the sidebar to icon-collapsible mode so it collapses to icons instead of fully disappearing.
+- Tightened sport selector padding in collapsed mode so the league logo stays visible and centered.
+- Persisted the last selected sport so global pages (Tracker, Lineups) no longer reset to NFL.
+
+### Added - Tracker Page
+- Added a global Tracker page scaffold for cross-sport tracking workflows.
+- Added placeholder pages for NFL and NBA Scores/Lineups/Market (plus NBA Home/Prop Lab) to support the new global navigation links.
+- Built out the Tracker hub with MLB glass styling, stats dashboard, filters, bet log table, and calendar summaries.
+- Added Add/Edit/Delete bet workflows plus CSV import with header mapping and preview.
+- Added Supabase schema + RLS for user_bets, plus unit size storage for unit-based tracking.
+- Added tracker API routes for CRUD and bulk CSV imports.
+- Added Event Date tracking to the bet schema, forms, imports, and table display.
+- Expanded Tracker bet metadata (parlays, boosts, bonus/no-sweat fields) plus new filters.
+- Streamlined Add Bet with sport + sportsbook tiles, quick result buttons, and local custom tiles.
+- Matched Tracker background/layout to MLB glass mode and moved unit size control to the page header.
+- Rebuilt Tracker layout to match the mockup: profile strip, calendar + dashboard split, full-width bet log.
+- Scoped the Units/Dollars toggle to the calendar only and styled Add Bet with teal accent.
+- Updated Add Bet modal styling to MLB-themed glass with teal glow and league logos.
+
+### Changed - MLB Lineups Layout Density
+- Expanded MLB layout max width to 1600px and updated lineups to show up to 3 cards per row on xl screens.
+
+### Changed - MLB Frosted Glass Treatment
+- Updated MLB cards, sidebar drawer, and top header to use a thicker frosted-glass effect inspired by the backdrop-filter technique.
+- Shifted the MLB gradient emphasis back to the page background, and simplified glass overlays so the gradient shines through; adjusted mobile sidebar sheet z-index/opacity.
+- Aligned MLB cards, sidebar, and header glass styling to match MLB Home visuals and restored a full-page gradient glow.
+- Matched MLB lineups card glass styling to the same gradients and shadows as MLB Home tiles.
+- Standardized MLB card borders and removed extra card overlay so all MLB pages share the same glass treatment.
+- Unified all MLB glass surfaces to the same shared variables so every MLB page renders identical background and glass styling.
+
 ### Changed - Sidebar Sport Scoping
 - Sidebar now only shows the selected sport's pages, while keeping Home, Settings, and Calculators global.
 - Removed the sport accordion so active sport pages are listed directly in the sidebar.
@@ -24,6 +70,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MLB route group with placeholder pages for Home, Scores, Lineups, Weather Report, Prop Lab, Market, Tools, Team, and Player sections.
 - Added MLB section navbar and sport-scoped sidebar entries for MLB tools, team, and player workflows.
 - Enabled MLB in the sport selector and added a calculators landing page for MLB placeholders.
+
+### Changed - MLB Visual Theme (Scoped)
+- Added an MLB-only frosted-glass theme with teal accent, hover depth, and textured/gradient background.
+- Tightened MLB card padding and spacing while increasing visual separation between major sections.
+- Updated MLB navbar and section headers to use the MLB-specific visual hierarchy.
+- Extended the MLB theme across the full app shell (background, top bar, sidebar/drawer).
+- Increased MLB card transparency for a lighter glass feel.
+- Forced MLB card backgrounds to override global card fill for visible transparency.
+- Replaced MLB cards with a dedicated MLBCard component to avoid global card styling.
+- Pushed MLB card transparency higher for clearer background bleed-through.
+- Rebuilt MLB Home with custom glass tiles and layout sections for visible transparency.
+- Switched MLB Home tiles to ultra-transparent glass with stronger highlights.
+- Matched MLB Home tiles to the sidebar glass treatment for consistent frosting.
+- Removed MLB Home card backgrounds for fully transparent tiles.
+- Added subtle teal gradient fills to MLB Home tiles and hero cards.
+- Softened the MLB tile gradients to keep the frosted glass transparency.
+- Reduced MLB tile border brightness for a softer edge.
+- Moved the sport selector into the sidebar above navigation, and moved global search to the top-right header slot.
 
 ### Changed - Header Controls
 - Moved the sport selector into the mobile sidebar drawer and removed the light theme toggle from the top header.

@@ -3,9 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Card, CardContent } from "@/components/ui/card"
-
-const cardBase = "rounded-md border border-gray-700 bg-[#171717] shadow-none transition-none"
+import { MlbCard, MlbCardContent } from "@/components/mlb/mlb-card"
 
 const navItems = [
   { label: "Home", href: "/mlb" },
@@ -15,6 +13,7 @@ const navItems = [
   { label: "Prop Lab", href: "/mlb/prop-lab" },
   { label: "Market", href: "/mlb/market" },
   { label: "Tools", href: "/mlb/tools/player-vs-opp" },
+  { label: "Pitch Matrix", href: "/mlb/tools/pitch-matrix" },
   { label: "Team", href: "/mlb/team/gamelogs" },
   { label: "Player", href: "/mlb/player/gamelogs" },
 ]
@@ -23,8 +22,8 @@ export function MlbNavbar() {
   const pathname = usePathname()
 
   return (
-    <Card className={cardBase}>
-      <CardContent className="p-3">
+    <MlbCard>
+      <MlbCardContent className="px-3 py-2">
         <nav className="flex flex-wrap items-center gap-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -33,10 +32,10 @@ export function MlbNavbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-none",
+                  "mlb-nav-link",
                   isActive
-                    ? "border-gray-600 bg-black/40 text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "mlb-nav-link-active"
+                    : "mlb-nav-link-inactive"
                 )}
               >
                 {item.label}
@@ -44,7 +43,7 @@ export function MlbNavbar() {
             )
           })}
         </nav>
-      </CardContent>
-    </Card>
+      </MlbCardContent>
+    </MlbCard>
   )
 }

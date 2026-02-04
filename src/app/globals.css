@@ -176,3 +176,187 @@
   }
 }
 
+@layer utilities {
+  /* MLB Scoped Theme */
+  body.mlb-mode {
+    --mlb-accent: 73 193 251;
+    --mlb-radius: 4px;
+    --mlb-card-border: rgba(255, 255, 255, 0.08);
+    --mlb-card-border-strong: rgba(255, 255, 255, 0.14);
+    --mlb-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --mlb-shadow-strong: 0 18px 50px rgba(0, 0, 0, 0.55);
+    --mlb-glass-bg: linear-gradient(
+      135deg,
+      rgba(8, 10, 14, 0.08),
+      rgba(73, 193, 251, 0.06)
+    );
+    --mlb-glass-border: rgba(255, 255, 255, 0.12);
+    --mlb-glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 16px 40px rgba(0, 0, 0, 0.55);
+    --mlb-glass-blur: blur(16px);
+    background:
+      radial-gradient(1400px 700px at 10% -12%, rgba(73, 193, 251, 0.35), transparent 60%),
+      radial-gradient(1200px 600px at 50% -10%, rgba(73, 193, 251, 0.18), transparent 65%),
+      radial-gradient(900px 500px at 92% 0%, rgba(73, 193, 251, 0.22), transparent 55%),
+      linear-gradient(180deg, #090c11 0%, #0b0f15 45%, #080a0f 100%);
+    position: relative;
+    background-attachment: fixed;
+  }
+
+  body.mlb-mode::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.18;
+    mix-blend-mode: soft-light;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body.mlb-mode [data-mlb-topbar] {
+    position: sticky;
+    background: var(--mlb-glass-bg);
+    border-bottom-color: var(--mlb-glass-border);
+    box-shadow: var(--mlb-glass-shadow);
+    backdrop-filter: var(--mlb-glass-blur);
+    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  }
+
+  body.mlb-mode [data-mlb-topbar] > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  body.mlb-mode [data-sidebar="sidebar"] {
+    position: relative;
+    background: var(--mlb-glass-bg);
+    border-color: var(--mlb-glass-border);
+    box-shadow: var(--mlb-glass-shadow);
+    backdrop-filter: var(--mlb-glass-blur);
+    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  }
+
+  body.mlb-mode .mlb-glass-tile {
+    background: var(--mlb-glass-bg);
+    border: 1px solid var(--mlb-glass-border);
+    box-shadow: var(--mlb-glass-shadow);
+    backdrop-filter: var(--mlb-glass-blur);
+    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  }
+
+  body.mlb-mode .mlb-glass-tile:hover {
+    border-color: rgba(73, 193, 251, 0.32);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 20px 50px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(73, 193, 251, 0.25);
+  }
+
+  body.mlb-mode .mlb-glass-hero {
+    background: var(--mlb-glass-bg);
+    border: 1px solid var(--mlb-glass-border);
+    box-shadow: var(--mlb-glass-shadow);
+    backdrop-filter: var(--mlb-glass-blur);
+    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  }
+
+  .mlb-scope {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mlb-shell {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mlb-card {
+    border-radius: var(--mlb-radius);
+    border: 1px solid var(--mlb-glass-border);
+    background: var(--mlb-glass-bg) !important;
+    box-shadow: var(--mlb-glass-shadow);
+    backdrop-filter: var(--mlb-glass-blur);
+    -webkit-backdrop-filter: var(--mlb-glass-blur);
+    position: relative;
+    overflow: hidden;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .mlb-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mlb-card::after {
+    content: none;
+  }
+
+  body.mlb-mode [data-sidebar="sidebar"][data-mobile="true"] {
+    z-index: 60;
+    background: var(--mlb-glass-bg);
+  }
+
+  .mlb-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(73, 193, 251, 0.45);
+    box-shadow: var(--mlb-shadow-strong), 0 0 0 1px rgba(73, 193, 251, 0.2);
+  }
+
+  .mlb-card-muted {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)) !important;
+    background-color: rgba(7, 9, 13, 0.14) !important;
+  }
+
+  .mlb-card-hero {
+    border-color: var(--mlb-card-border-strong);
+    box-shadow: var(--mlb-shadow-strong);
+  }
+
+  .mlb-section-title {
+    position: relative;
+    padding-left: 12px;
+  }
+
+  .mlb-section-title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 70%;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, rgba(73, 193, 251, 0.9), rgba(73, 193, 251, 0.4));
+    box-shadow: 0 0 10px rgba(73, 193, 251, 0.35);
+  }
+
+  .mlb-nav-link {
+    border-radius: calc(var(--mlb-radius) - 1px);
+    border: 1px solid transparent;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  }
+
+  .mlb-nav-link-active {
+    border-color: rgba(73, 193, 251, 0.5);
+    background: rgba(73, 193, 251, 0.12);
+    color: rgba(240, 248, 255, 0.95);
+    box-shadow: inset 0 0 0 1px rgba(73, 193, 251, 0.15);
+  }
+
+  .mlb-nav-link-inactive {
+    color: rgba(226, 232, 240, 0.7);
+  }
+
+  .mlb-nav-link-inactive:hover {
+    border-color: rgba(73, 193, 251, 0.35);
+    color: rgba(240, 248, 255, 0.95);
+  }
+}
+

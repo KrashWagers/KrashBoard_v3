@@ -1,26 +1,27 @@
 "use client"
 
 import * as React from "react"
-import { 
-  BarChart3, 
-  Calculator, 
-  Cloud, 
-  Shield, 
-  Target, 
-  TrendingUp,
-  Users,
-  UserCircle,
-  ChevronDown,
-  Zap,
-  Percent,
+import {
   Activity,
+  BarChart3,
+  Calculator,
+  ChevronDown,
+  Cloud,
   DollarSign,
-  PieChart
+  Percent,
+  PieChart,
+  Shield,
+  Target,
+  TrendingUp,
+  UserCircle,
+  Users,
+  Zap,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { SportsSelector } from "@/components/sports-selector"
+import { useActiveSportId } from "@/hooks/use-active-sport"
 import {
   Sidebar,
   SidebarContent,
@@ -56,24 +57,16 @@ type SportNav = {
   name: string
   root: string
   homeIcon: NavIcon
-  items: NavItem[]
   tools?: NavItem[]
   stats?: NavItem[]
-  team?: NavItem[]
-  player?: NavItem[]
 }
 
 const navIconClassName = "h-5 w-5"
 const navIconSize = 20
 const isIconPath = (icon: NavIcon): icon is string => typeof icon === "string"
 
-// NFL submenu items
-const nflItems: NavItem[] = [
-  {
-    title: "Prop Lab",
-    url: "/nfl/tools/prop-lab",
-    icon: Calculator,
-  },
+// NFL tools
+const nflTools: NavItem[] = [
   {
     title: "Prop Matrix",
     url: "/nfl/tools/prop-matrix",
@@ -111,29 +104,48 @@ const nflItems: NavItem[] = [
   },
 ]
 
-// NHL main items
-const nhlItems: NavItem[] = [
-  {
-    title: "Scores",
-    url: "/nhl/scores",
-    icon: "/Images/Icons/NHL_scoreboard.svg",
-  },
-  {
-    title: "Lineups",
-    url: "/lineups",
-    icon: "/Images/Icons/lineups.svg",
-  },
-  {
-    title: "Prop Lab",
-    url: "/nhl/tools/prop-lab",
-    icon: "/Images/Icons/prop_lab.svg",
-  },
-  {
-    title: "Market",
-    url: "/nhl/tools/the-market",
-    icon: "/Images/Icons/market.svg",
-  },
-]
+const navigationBySport: Record<string, NavItem[]> = {
+  nfl: [
+    { title: "Scores", url: "/nfl/scores", icon: Activity },
+    { title: "Lineups", url: "/nfl/lineups", icon: Users },
+    { title: "Prop Lab", url: "/nfl/tools/prop-lab", icon: Calculator },
+    { title: "Market", url: "/nfl/market", icon: TrendingUp },
+  ],
+  nhl: [
+    {
+      title: "Scores",
+      url: "/nhl/scores",
+      icon: "/Images/Icons/NHL_scoreboard.svg",
+    },
+    {
+      title: "Lineups",
+      url: "/lineups",
+      icon: "/Images/Icons/lineups.svg",
+    },
+    {
+      title: "Prop Lab",
+      url: "/nhl/tools/prop-lab",
+      icon: "/Images/Icons/prop_lab.svg",
+    },
+    {
+      title: "Market",
+      url: "/nhl/tools/the-market",
+      icon: "/Images/Icons/market.svg",
+    },
+  ],
+  nba: [
+    { title: "Scores", url: "/nba/scores", icon: Activity },
+    { title: "Lineups", url: "/nba/lineups", icon: Users },
+    { title: "Prop Lab", url: "/nba/prop-lab", icon: Calculator },
+    { title: "Market", url: "/nba/market", icon: TrendingUp },
+  ],
+  mlb: [
+    { title: "Scores", url: "/mlb/scores", icon: Activity },
+    { title: "Lineups", url: "/mlb/lineups", icon: Users },
+    { title: "Prop Lab", url: "/mlb/prop-lab", icon: Calculator },
+    { title: "Market", url: "/mlb/market", icon: TrendingUp },
+  ],
+}
 
 // NHL tools
 const nhlTools: NavItem[] = [
@@ -168,45 +180,16 @@ const nhlStats: NavItem[] = [
   },
 ]
 
-// MLB main items
-const mlbItems: NavItem[] = [
-  {
-    title: "Scores",
-    url: "/mlb/scores",
-    icon: Activity,
-  },
-  {
-    title: "Lineups",
-    url: "/mlb/lineups",
-    icon: Users,
-  },
+const mlbTools: NavItem[] = [
   {
     title: "Weather Report",
     url: "/mlb/weather-report",
     icon: Cloud,
   },
   {
-    title: "Prop Lab",
-    url: "/mlb/prop-lab",
-    icon: Calculator,
-  },
-  {
-    title: "Market",
-    url: "/mlb/market",
-    icon: TrendingUp,
-  },
-]
-
-const mlbTools: NavItem[] = [
-  {
-    title: "Player vs Opp",
-    url: "/mlb/tools/player-vs-opp",
+    title: "Pitch Matrix",
+    url: "/mlb/tools/pitch-matrix",
     icon: Target,
-  },
-  {
-    title: "Barrel Boys",
-    url: "/mlb/tools/barrel-boys",
-    icon: BarChart3,
   },
   {
     title: "Pitcher Report",
@@ -214,40 +197,29 @@ const mlbTools: NavItem[] = [
     icon: Shield,
   },
   {
-    title: "Calculators",
-    url: "/mlb/tools/calculators",
-    icon: Calculator,
-  },
-]
-
-const mlbTeam: NavItem[] = [
-  {
-    title: "Team Gamelogs",
-    url: "/mlb/team/gamelogs",
-    icon: BarChart3,
+    title: "Batter vs Pitcher",
+    url: "/mlb/tools/player-vs-opp",
+    icon: Target,
   },
   {
-    title: "Team Rankings",
-    url: "/mlb/team/rankings",
-    icon: TrendingUp,
-  },
-]
-
-const mlbPlayer: NavItem[] = [
-  {
-    title: "Player Gamelogs",
-    url: "/mlb/player/gamelogs",
+    title: "Batter vs Opp",
+    url: "/mlb/tools/batter-vs-opp",
     icon: Users,
   },
   {
-    title: "Player Rankings",
-    url: "/mlb/player/rankings",
-    icon: TrendingUp,
+    title: "Batter Stats",
+    url: "/mlb/tools/batter-stats",
+    icon: BarChart3,
   },
   {
-    title: "Player Percentiles",
-    url: "/mlb/player/percentiles",
-    icon: Percent,
+    title: "Pitcher Stats",
+    url: "/mlb/tools/pitcher-stats",
+    icon: Activity,
+  },
+  {
+    title: "Team Stats",
+    url: "/mlb/tools/team-stats",
+    icon: TrendingUp,
   },
 ]
 
@@ -257,14 +229,13 @@ const sports: SportNav[] = [
     name: "NFL",
     root: "/nfl",
     homeIcon: "/Images/Icons/football.svg",
-    items: nflItems,
+    tools: nflTools,
   },
   {
     id: "nhl",
     name: "NHL",
     root: "/nhl",
     homeIcon: "/Images/Icons/hockey.svg",
-    items: nhlItems,
     tools: nhlTools,
     stats: nhlStats,
   },
@@ -280,22 +251,21 @@ const sports: SportNav[] = [
     name: "MLB",
     root: "/mlb",
     homeIcon: "/Images/Icons/baseball.svg",
-    items: mlbItems,
     tools: mlbTools,
-    team: mlbTeam,
-    player: mlbPlayer,
   },
 ] as const
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { activeSportId } = useActiveSportId(pathname)
   const [userEmail, setUserEmail] = React.useState<string | null>(null)
   const [displayName, setDisplayName] = React.useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null)
   const activeSport =
-    sports.find((sport) => pathname.startsWith(sport.root)) ?? sports[0]
+    sports.find((sport) => sport.id === (activeSportId ?? "nfl")) ?? sports[0]
   const isActivePath = (url: string, exact = false) =>
     exact ? pathname === url : pathname === url || pathname.startsWith(`${url}/`)
+  const navigationItems = navigationBySport[activeSport.id] ?? []
 
   React.useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -347,7 +317,7 @@ export function AppSidebar() {
   }, [])
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/60 pb-4">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -360,16 +330,23 @@ export function AppSidebar() {
                   height={32}
                   className="w-8 h-8"
                 />
-                <span className="font-bold text-lg">KrashBoard</span>
+                <span className="font-bold text-lg group-data-[collapsible=icon]:hidden">
+                  KrashBoard
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="px-4 pb-4 pt-2 lg:hidden">
-          <SportsSelector />
-        </div>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Sport</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 group-data-[collapsible=icon]:px-0">
+              <SportsSelector />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -393,13 +370,13 @@ export function AppSidebar() {
                     ) : (
                       <activeSport.homeIcon className={navIconClassName} />
                     )}
-                    <span>Home</span>
+                    <span className="group-data-[collapsible=icon]:hidden">Home</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               
-              {/* Active Sport Pages */}
-              {activeSport.items.map((subItem) => (
+              {/* Active Sport Navigation */}
+              {navigationItems.map((subItem) => (
                 <SidebarMenuItem key={subItem.title}>
                   <SidebarMenuButton
                     asChild
@@ -418,11 +395,26 @@ export function AppSidebar() {
                       ) : (
                         <subItem.icon className={navIconClassName} />
                       )}
-                      <span>{subItem.title}</span>
+                      <span className="group-data-[collapsible=icon]:hidden">
+                        {subItem.title}
+                      </span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Tracker"
+                  isActive={isActivePath("/tracker")}
+                >
+                  <Link href="/tracker">
+                    <BarChart3 className={navIconClassName} />
+                    <span className="group-data-[collapsible=icon]:hidden">Tracker</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {activeSport.tools && activeSport.tools.length > 0 && (
                 <>
@@ -446,67 +438,9 @@ export function AppSidebar() {
                           ) : (
                             <toolItem.icon className={navIconClassName} />
                           )}
-                          <span>{toolItem.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </>
-              )}
-
-              {activeSport.team && activeSport.team.length > 0 && (
-                <>
-                  <SidebarGroupLabel className="mt-3">Team</SidebarGroupLabel>
-                  {activeSport.team.map((teamItem) => (
-                    <SidebarMenuItem key={teamItem.title}>
-                      <SidebarMenuButton
-                        asChild
-                        tooltip={teamItem.title}
-                        isActive={isActivePath(teamItem.url)}
-                      >
-                        <Link href={teamItem.url}>
-                          {isIconPath(teamItem.icon) ? (
-                            <Image
-                              src={teamItem.icon}
-                              alt={`${teamItem.title} icon`}
-                              width={navIconSize}
-                              height={navIconSize}
-                              className={navIconClassName}
-                            />
-                          ) : (
-                            <teamItem.icon className={navIconClassName} />
-                          )}
-                          <span>{teamItem.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </>
-              )}
-
-              {activeSport.player && activeSport.player.length > 0 && (
-                <>
-                  <SidebarGroupLabel className="mt-3">Player</SidebarGroupLabel>
-                  {activeSport.player.map((playerItem) => (
-                    <SidebarMenuItem key={playerItem.title}>
-                      <SidebarMenuButton
-                        asChild
-                        tooltip={playerItem.title}
-                        isActive={isActivePath(playerItem.url)}
-                      >
-                        <Link href={playerItem.url}>
-                          {isIconPath(playerItem.icon) ? (
-                            <Image
-                              src={playerItem.icon}
-                              alt={`${playerItem.title} icon`}
-                              width={navIconSize}
-                              height={navIconSize}
-                              className={navIconClassName}
-                            />
-                          ) : (
-                            <playerItem.icon className={navIconClassName} />
-                          )}
-                          <span>{playerItem.title}</span>
+                          <span className="group-data-[collapsible=icon]:hidden">
+                            {toolItem.title}
+                          </span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -536,7 +470,9 @@ export function AppSidebar() {
                           ) : (
                             <statItem.icon className={navIconClassName} />
                           )}
-                          <span>{statItem.title}</span>
+                          <span className="group-data-[collapsible=icon]:hidden">
+                            {statItem.title}
+                          </span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -548,14 +484,16 @@ export function AppSidebar() {
               <Collapsible
                 asChild
                 defaultOpen={false}
-                className="group/collapsible"
+                className="group/collapsible mt-2"
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip="Calculators">
                       <Calculator />
-                      <span>Calculators</span>
-                      <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                      <span className="group-data-[collapsible=icon]:hidden">
+                        Calculators
+                      </span>
+                      <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -688,7 +626,7 @@ export function AppSidebar() {
                     <UserCircle className="h-5 w-5 text-muted-foreground" />
                   )}
                 </span>
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
                   {userEmail ? displayName || "Profile" : "Sign in"}
                 </span>
               </Link>

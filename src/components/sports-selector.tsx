@@ -4,6 +4,7 @@ import * as React from "react"
 import { ChevronDown } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
+import { useActiveSportId } from "@/hooks/use-active-sport"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -47,15 +48,20 @@ const sports = [
 export function SportsSelector() {
   const pathname = usePathname()
   const router = useRouter()
+  const { activeSportId, setActiveSportId } = useActiveSportId(pathname)
   
   // Get current sport based on pathname
-  const currentSport = sports.find(sport => 
-    pathname.startsWith(sport.href) || 
-    (sport.href === "/nfl" && pathname === "/")
-  ) || sports[0]
+  const currentSport =
+    sports.find((sport) => sport.id === activeSportId) ??
+    sports.find(
+      (sport) =>
+        pathname.startsWith(sport.href) || (sport.href === "/nfl" && pathname === "/")
+    ) ??
+    sports[0]
 
   const handleSportSelect = (sport: typeof sports[0]) => {
     if (sport.available) {
+      setActiveSportId(sport.id)
       router.push(sport.href)
     }
   }
@@ -63,9 +69,9 @@ export function SportsSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="flex items-center gap-2 px-3 py-2 h-9"
+        <Button
+          variant="outline"
+          className="flex w-full items-center gap-2 px-3 py-2 h-9 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
         >
           <Image
             src={currentSport.logo}
@@ -74,8 +80,10 @@ export function SportsSelector() {
             height={20}
             className="w-5 h-5"
           />
-          <span className="font-medium">{currentSport.name}</span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
+          <span className="font-medium group-data-[collapsible=icon]:hidden">
+            {currentSport.name}
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50 group-data-[collapsible=icon]:hidden" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" className="w-48">

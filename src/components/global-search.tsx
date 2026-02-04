@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { useActiveSportId } from "@/hooks/use-active-sport"
 
 type SportId = "nfl" | "nhl" | "nba" | "mlb"
 
@@ -90,6 +91,7 @@ const createDefaultNFLProp = (playerId: string, playerName: string) => ({
 export function GlobalSearch() {
   const router = useRouter()
   const pathname = usePathname()
+  const { activeSportId } = useActiveSportId(pathname)
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const [activeTab, setActiveTab] = React.useState<"all" | "players" | "teams">("all")
@@ -98,10 +100,10 @@ export function GlobalSearch() {
 
   const activeSport = React.useMemo(() => {
     return (
-      sportsByPath.find((sport) => pathname.startsWith(sport.root)) ??
+      sportsByPath.find((sport) => sport.id === (activeSportId ?? "nfl")) ??
       sportsByPath[0]
     )
-  }, [pathname])
+  }, [activeSportId])
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -110,6 +110,47 @@ export const CACHE_TTL = {
   // Add other TTL values as needed
 } as const
 
+type TimedCacheItem<T> = {
+  data: T
+  expiresAt: number
+}
+
+const timedCache = new Map<string, TimedCacheItem<unknown>>()
+
+/** 24 hours in seconds — for data that updates once per day (e.g. MLB BVP payloads) */
+export const CACHE_TTL_24H_SECONDS = 24 * 60 * 60
+
+export function getCacheTTLSeconds(now: Date = new Date()): number {
+  const etNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" })
+  )
+  const nextReset = new Date(etNow)
+  nextReset.setHours(4, 0, 0, 0)
+
+  if (etNow >= nextReset) {
+    nextReset.setDate(nextReset.getDate() + 1)
+  }
+
+  const diffMs = nextReset.getTime() - etNow.getTime()
+  const diffSeconds = Math.max(1, Math.floor(diffMs / 1000))
+  return Math.min(diffSeconds, 86400)
+}
+
+export function getFromCache<T>(key: string): T | null {
+  const item = timedCache.get(key)
+  if (!item) return null
+  if (Date.now() >= item.expiresAt) {
+    timedCache.delete(key)
+    return null
+  }
+  return item.data as T
+}
+
+export function setCache<T>(key: string, value: T, ttlSeconds: number): void {
+  const expiresAt = Date.now() + ttlSeconds * 1000
+  timedCache.set(key, { data: value, expiresAt })
+}
+
 // Shared cache helper (in-memory by default; swap for Redis in prod if desired)
 export async function getCached<T>(key: string): Promise<T | null> {
   return serverCache.get<T>(key)

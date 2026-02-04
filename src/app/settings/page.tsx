@@ -57,12 +57,14 @@ type UserPreferences = {
   sportsbooks: string[]
   odds_format: string
   theme: string
+  unit_size: number
 }
 
 const defaultPreferences: UserPreferences = {
   sportsbooks: ["draftkings", "fanduel"],
   odds_format: "american",
   theme: "system",
+  unit_size: 0,
 }
 
 export default function SettingsPage() {
@@ -103,7 +105,7 @@ export default function SettingsPage() {
 
       const { data: prefData } = await supabase
         .from("user_preferences")
-        .select("sportsbooks, odds_format, theme")
+        .select("sportsbooks, odds_format, theme, unit_size")
         .eq("user_id", user.id)
         .single()
 
@@ -112,6 +114,7 @@ export default function SettingsPage() {
           sportsbooks: Array.isArray(prefData.sportsbooks) ? prefData.sportsbooks : defaultPreferences.sportsbooks,
           odds_format: prefData.odds_format ?? defaultPreferences.odds_format,
           theme: prefData.theme ?? defaultPreferences.theme,
+          unit_size: prefData.unit_size != null ? Number(prefData.unit_size) : defaultPreferences.unit_size,
         }
         setPreferences(nextPrefs)
         setTheme(nextPrefs.theme)
@@ -187,6 +190,7 @@ export default function SettingsPage() {
           sportsbooks: preferences.sportsbooks,
           odds_format: preferences.odds_format,
           theme: preferences.theme,
+          unit_size: preferences.unit_size,
           updated_at: new Date().toISOString(),
         })
 
@@ -356,6 +360,32 @@ export default function SettingsPage() {
                   <span className="text-xs text-muted-foreground">{format.description}</span>
                 </Button>
               ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <h4 className="font-medium">Unit Size</h4>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="unit-size">Unit Size ($)</Label>
+                <Input
+                  id="unit-size"
+                  type="number"
+                  value={preferences.unit_size}
+                  onChange={(event) =>
+                    setPreferences((prev) => ({
+                      ...prev,
+                      unit_size: Number(event.target.value || 0),
+                    }))
+                  }
+                  placeholder="100"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used to auto-calculate dollar stakes when you enter units in Tracker.
+                </p>
+              </div>
             </div>
           </div>
 

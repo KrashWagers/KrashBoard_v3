@@ -4,12 +4,12 @@ import { MlbPageShell } from "@/components/mlb/mlb-page-shell"
 export default function MlbPlayerVsOppPage() {
   return (
     <MlbPageShell
-      title="Player vs Opponent"
-      description="Matchup history and opponent splits for MLB players."
+      title="Batter vs Pitcher"
+      description="Matchup history and head-to-head performance for batters and pitchers."
       sections={[
-        { title: "Opponent Splits", description: "Split performance by opponent." },
-        { title: "Matchup Context", description: "Pitcher/batter interactions." },
-        { title: "Recent History", description: "Last 10-20 games vs opponent." },
+        { title: "Head-to-Head", description: "Direct batter vs pitcher history." },
+        { title: "Pitch Mix Context", description: "Pitch-type trends for the matchup." },
+        { title: "Recent Samples", description: "Recent appearances against similar arms." },
       ]}
     />
   )

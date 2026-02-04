@@ -62,17 +62,19 @@ export default function RootLayout({
           <SidebarProvider>
             <AppSidebar />
             <main className="flex-1 flex flex-col">
-              <div className="flex h-12 items-center justify-between px-4 border-b bg-sidebar dark:bg-sidebar border-sidebar-border sticky top-0 z-50 transition-all duration-200">
+              <div
+                data-mlb-topbar
+                className="flex h-12 items-center justify-between px-4 border-b bg-sidebar dark:bg-sidebar border-sidebar-border sticky top-0 z-50 transition-all duration-200"
+              >
                 <div className="flex items-center gap-4">
                   <SidebarTrigger />
-                  <GlobalSearch />
                   <NavbarBackButton />
                 </div>
                 <div className="flex-1 flex justify-center">
                   <PageTitle />
                 </div>
-                <div className="hidden items-center gap-4 lg:flex">
-                  <SportsSelector />
+                <div className="flex items-center gap-4">
+                  <GlobalSearch />
                 </div>
               </div>
               <div className="flex-1 p-6">

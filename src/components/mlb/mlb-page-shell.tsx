@@ -1,7 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  MlbCard,
+  MlbCardContent,
+  MlbCardDescription,
+  MlbCardHeader,
+  MlbCardTitle,
+} from "@/components/mlb/mlb-card"
 
 export type MlbSectionItem = {
   title: string
@@ -21,26 +27,28 @@ type MlbPageShellProps = {
   children?: React.ReactNode
 }
 
-const cardBase = "rounded-md border border-gray-700 bg-[#171717] shadow-none transition-none"
+const cardVariant = "muted"
 
 export function MlbSectionBlock({ title, description, items }: MlbSectionBlockProps) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-1.5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <h2 className="mlb-section-title text-lg font-semibold tracking-tight">{title}</h2>
+        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
         {items.map((section) => (
-          <Card key={section.title} className={cardBase}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{section.title}</CardTitle>
-              <CardDescription className="text-sm">{section.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 text-xs text-muted-foreground">
+          <MlbCard key={section.title} variant={cardVariant}>
+            <MlbCardHeader className="p-3 pb-1.5">
+              <MlbCardTitle className="text-sm font-semibold tracking-wide">
+                {section.title}
+              </MlbCardTitle>
+              <MlbCardDescription className="text-xs">{section.description}</MlbCardDescription>
+            </MlbCardHeader>
+            <MlbCardContent className="px-3 pb-3 pt-0 text-[11px] text-muted-foreground">
               Placeholder layout — data and controls will land here.
-            </CardContent>
-          </Card>
+            </MlbCardContent>
+          </MlbCard>
         ))}
       </div>
     </section>
@@ -49,24 +57,32 @@ export function MlbSectionBlock({ title, description, items }: MlbSectionBlockPr
 
 export function MlbPageShell({ title, description, sections, children }: MlbPageShellProps) {
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+    <div className="space-y-10">
+      <MlbCard variant="hero">
+        <MlbCardHeader className="p-3">
+          <MlbCardTitle className="text-2xl font-semibold tracking-tight">
+            {title}
+          </MlbCardTitle>
+          <MlbCardDescription className="text-sm text-muted-foreground">
+            {description}
+          </MlbCardDescription>
+        </MlbCardHeader>
+      </MlbCard>
       {children}
       {sections && sections.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {sections.map((section) => (
-            <Card key={section.title} className={cardBase}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{section.title}</CardTitle>
-                <CardDescription className="text-sm">{section.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0 text-xs text-muted-foreground">
+            <MlbCard key={section.title} variant={cardVariant}>
+              <MlbCardHeader className="p-3 pb-1.5">
+                <MlbCardTitle className="text-sm font-semibold tracking-wide">
+                  {section.title}
+                </MlbCardTitle>
+                <MlbCardDescription className="text-xs">{section.description}</MlbCardDescription>
+              </MlbCardHeader>
+              <MlbCardContent className="px-3 pb-3 pt-0 text-[11px] text-muted-foreground">
                 Placeholder layout — data and controls will land here.
-              </CardContent>
-            </Card>
+              </MlbCardContent>
+            </MlbCard>
           ))}
         </div>
       )}

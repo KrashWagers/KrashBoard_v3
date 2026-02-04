@@ -23,6 +23,22 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'a.espncdn.com',
+        port: '',
+        pathname: '/i/headshots/mlb/players/full/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.mlbstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.mlbstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'assets.nhle.com',
         port: '',
         pathname: '/mugs/nhl/**',

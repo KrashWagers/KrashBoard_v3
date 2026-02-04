@@ -58,7 +58,7 @@ interface FilterOptions {
   sportsbooks: string[]
 }
 
-type SortField = 'odds' | 'implied' | 'streak' | 'hitL10' | 'hitL5' | 'hitL30' | 'hit2025' | 'hit2024' | 'l50VsIw' | 'line' | 'player' | 'prop'
+type SortField = 'odds' | 'implied' | 'streak' | 'hitL10' | 'hitL5' | 'hitL30' | 'hitL50' | 'hit2025' | 'hit2024' | 'l50VsIw' | 'line' | 'player' | 'prop'
 type SortDirection = 'asc' | 'desc'
 
 // Helper function for NHL team logos
@@ -315,6 +315,8 @@ export default function NHLPropLabPage() {
           return dir * (((b.hit_L5 ?? 0) - (a.hit_L5 ?? 0)))
         case 'hitL30':
           return dir * (((b.hit_L30 ?? 0) - (a.hit_L30 ?? 0)))
+        case 'hitL50':
+          return dir * (((b.hit_L50 ?? 0) - (a.hit_L50 ?? 0)))
         case 'hit2025':
           return dir * (((b.hit_2025 ?? 0) - (a.hit_2025 ?? 0)))
         case 'hit2024':
@@ -344,6 +346,7 @@ export default function NHLPropLabPage() {
       hit2024: { min: 0, max: 0 },
       l50VsIw: { min: 0, max: 0 },
       hitL30: { min: 0, max: 0 },
+      hitL50: { min: 0, max: 0 },
       hitL10: { min: 0, max: 0 },
       hitL5: { min: 0, max: 0 },
     }
@@ -356,6 +359,7 @@ export default function NHLPropLabPage() {
       .map(r => (r.hit_L50 != null && r.implied_win_pct != null ? r.hit_L50 - r.implied_win_pct : null))
       .filter(v => v != null) as number[]
     const valuesL30 = filteredGrouped.map(r => r.hit_L30).filter(v => v != null) as number[]
+    const valuesL50 = filteredGrouped.map(r => r.hit_L50).filter(v => v != null) as number[]
     const valuesL10 = filteredGrouped.map(r => r.hit_L10).filter(v => v != null) as number[]
     const valuesL5 = filteredGrouped.map(r => r.hit_L5).filter(v => v != null) as number[]
 
@@ -374,6 +378,10 @@ export default function NHLPropLabPage() {
     if (valuesL30.length > 0) {
       stats.hitL30.min = Math.min(...valuesL30)
       stats.hitL30.max = Math.max(...valuesL30)
+    }
+    if (valuesL50.length > 0) {
+      stats.hitL50.min = Math.min(...valuesL50)
+      stats.hitL50.max = Math.max(...valuesL50)
     }
     if (valuesL10.length > 0) {
       stats.hitL10.min = Math.min(...valuesL10)
@@ -404,7 +412,7 @@ export default function NHLPropLabPage() {
       switch (field) {
         case 'hitL30': return 'L30'
         case 'hitL10': return 'L10'
-        case 'hitL5': return 'L10'
+        case 'hitL5': return 'L50'
         case 'hit2025': return '20242025'
         case 'hit2024': return '20252026'
         case 'l50VsIw': return 'L30'
@@ -432,7 +440,7 @@ export default function NHLPropLabPage() {
 
   const getHitRateBadgeStyle = (
     hitRate: number | null,
-    columnType: 'hit2025' | 'hit2024' | 'hitL30' | 'hitL10' | 'hitL5' | 'l50VsIw'
+    columnType: 'hit2025' | 'hit2024' | 'hitL30' | 'hitL50' | 'hitL10' | 'hitL5' | 'l50VsIw'
   ) => {
     if (hitRate == null) return 'bg-muted border-border text-muted-foreground'
     
@@ -948,6 +956,9 @@ export default function NHLPropLabPage() {
                     <SortButton field="hit2024">2025-26</SortButton>
                   </th>
                   <th className="text-left p-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <SortButton field="hitL50">L50</SortButton>
+                  </th>
+                  <th className="text-left p-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <SortButton field="hitL30">L30</SortButton>
                   </th>
                   <th className="text-left p-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -1137,6 +1148,11 @@ export default function NHLPropLabPage() {
                       <td className="p-2">
                         <Badge className={`text-xs font-semibold border-2 px-2.5 py-1 ${getHitRateBadgeStyle(row.hit_2024, 'hit2024')}`}>
                           {formatPct(row.hit_2024)}
+                        </Badge>
+                      </td>
+                      <td className="p-2">
+                        <Badge className={`text-xs font-semibold border-2 px-2.5 py-1 ${getHitRateBadgeStyle(row.hit_L50, 'hitL50')}`}>
+                          {formatPct(row.hit_L50)}
                         </Badge>
                       </td>
                       <td className="p-2">
