@@ -52,6 +52,7 @@ secrets/
 !package-lock.json
 !tsconfig.json
 !components.json
+!src/data/mlb-team-colors.json
 
 # OS
 Thumbs.db
