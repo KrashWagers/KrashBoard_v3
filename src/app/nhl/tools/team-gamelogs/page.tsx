@@ -1184,7 +1184,7 @@ export default function TeamGamelogsPage() {
                       <Settings className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[calc(100vw-4rem)] max-w-2xl max-h-96 overflow-y-auto">
+                      <DropdownMenuContent className="min-w-[16rem] w-auto max-w-[min(32.5rem,calc(100%-1rem))] max-h-96 overflow-y-auto">
                         <div className="p-2 space-y-4">
                           {/* Basic Stats */}
                           <div>

@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2025-10-27
 
+### Changed - MLB Pitch Matrix: team logos moved to left vertical rail
+- **TeamLogoRail**: New vertical rail of MLB team logos on the left, flush against the main content (to the right of the app sidebar). Shown only on Matchups tab. Width 56px, full height of content area, border-right + bg-card, inner list overflow-y-auto if needed.
+- **Scroll-to-team**: Clicking a logo scrolls the main content scroll container (ref) to the team section via `scrollTo({ top, behavior: "smooth" })` with 16px offset. Selected team state shows persistent ring + slight scale.
+- **Hover/active**: Framer Motion hover scale 1.12, keyframe wiggle rotate [0,3,-2,0], soft glow (shadow primary); selected ring + scale 1.06. `useReducedMotion()` disables scale/wiggle; focus-visible ring for keyboard.
+- **Layout**: PitchMatrixClient uses a 2-column flex: left = TeamLogoRail (Matchups only), right = existing scroll div (ref). Team logos removed from the top controls bar.
+
+### Changed - MLB Pitch Matrix layout (game cards 2/3 width)
+- **Game cards width**: The game cards that contain the pitcher tables (TeamMatchupCard for away/home) are now wrapped in a container with `w-2/3 min-w-0`, so they use two-thirds of the content width and stay left-aligned. The game banner card (e.g. "NYY @ SF" with date/time) and the sticky header remain full width.
+
+### Changed - MLB Pitch Matrix tables (5 columns, labels, scroll, tooltips)
+- **5 pitch columns everywhere**: All tables now show exactly 5 pitch-type columns. Qualified pitches (usage ≥ 5%) fill slots in order; pitchers with fewer than 5 qualified pitches have remaining columns blank (even column widths). `getPitchColumnSlots()` returns 5 slots; `getPitchColumns()` filters by `USAGE_MIN_PCT` (0.05).
+- **VSLHB / NYY LHB spacing**: Labels use non-breaking space (`\u00A0`) so they read as "VS LHB" and "NYY LHB" (e.g. `standLabel={`VS\u00A0${stand}HB`}`, `batterLabel={\`${team}\u00A0${stand}HB\`}`). H2H Stance column uses same spacing.
+- **Batter section max 9 rows + nested scroll**: Pitch Matrix (Matchups) table’s batter list is in a scroll container with max height of 4 header rows + 9 batter rows; only that area scrolls, with sticky thead.
+- **Pitch type tooltips**: Pitch type column headers use `<Tooltip>` with full name (e.g. "Changeup", "4-Seam Fastball") via `getPitchFullName()`. Applied in PitchMatrixTable, BatterPitchTable, and H2H table cell tooltips.
+- **H2H tab**: Table shows 5 pitch slots per side (batter and pitcher) with tooltips; detail dialog “All pitches” list filters out empty slots.
+
+### Fixed - MLB Pitch Matrix sticky controls bar (flush under header, full width)
+- **Header height variable**: `--app-header-h` set to `64px` in `globals.css` (`:root` and `.dark`) to match the real app header; root layout header uses `style={{ height: "var(--app-header-h)" }}`.
+- **No gap under header**: Added route-aware `MainContentArea` (client). On `/pitch-matrix` it uses `p-0` and `overflow-hidden` so the page wrapper starts flush under the header with no dead space; other routes keep `p-4` and `overflow-y-auto`.
+- **Sticky bar**: Controls bar uses `position: sticky; top: 0` so it sticks to the top of the page wrapper (not the viewport), with `z-40`, `bg-card surface-glass`, full width; only the content area below the bar scrolls (`flex-1 min-h-0 overflow-auto` with `p-4` inside).
+- **Files**: `src/app/globals.css`, `src/app/layout.tsx`, `src/components/main-content-area.tsx`, `src/components/mlb/pitch-matrix/PitchMatrixClient.tsx`.
+
+### Added - Custom font (Corra Montserra)
+- **App-wide font**: Custom font "Corra Montserra" from `public/Fonts` is now the default for the entire app. All weights (Thin through Black) are loaded via `@font-face` in `globals.css` with `font-display: swap`.
+- **Layout**: Removed Google Inter; `body` uses `font-family: "Corra Montserra", ...` and Tailwind `fontFamily.sans` is set to the same stack so `font-sans` and default text use the custom font everywhere.
+- **Percent symbol only**: Added "Percent Fallback" `@font-face` with `unicode-range: U+0025` so only the "%" character uses the system UI font (Segoe UI / Helvetica Neue / Arial); all other text remains Corra Montserra. Font stack updated in `globals.css` and `tailwind.config.ts`.
+- **Files**: `src/app/globals.css` (font-face + body), `src/app/layout.tsx` (Inter removed), `tailwind.config.ts` (sans family).
+
+### Changed - MLB Pitch Matrix (theme re-skin)
+- **Global theme only**: Re-skinned Pitch Matrix to match the app’s dark liquid glass theme. Removed all MLB-only styling.
+- **Removed**: `PITCH_MATRIX_CARD_STYLE` (transparent panels, teal glow borders), `BRAND_TEAL` import, hardcoded hex colors (`#1f2937`, `#151515`, `#171717`, etc.), and `border-gray-*` / `bg-[#...]` classes.
+- **Replaced with**: Shared `<Card />` with `rounded-md border border-border bg-card surface-glass card-hover-glow`; token-based `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`; `interactive-surface` and `card-hover-glow` for tabs and panels; team logo fallback uses `hsl(var(--muted))`.
+- **Tables**: PitchMatrixTable wrapped in flex container (`flex flex-col min-h-0` → `flex-1 min-h-0 overflow-auto`) so the scroll region fills remaining height; table header uses `table-header-sticky`. Batter tab table uses same scroll region and sticky header; row hover uses `table-row-hover`.
+- **Tabs / toolbar**: Sticky bar uses `border-border bg-card surface-glass`; AVG/HR and Pitcher filter buttons use `bg-primary text-primary-foreground` when active, `border-border bg-muted/50` container.
+- **Dialog**: Detail popup uses `bg-card border border-border surface-glass`; inner tables and footer use `border-border`, `bg-card`, `bg-muted/*`.
+- Data fetching, filtering, and routing unchanged; color-coded percentages (green/red/yellow) preserved for data viz.
+
+### Changed - Glass panel utilities (shared primitives only)
+- **Unified glass panel**: Added in `globals.css`: `.glass-panel` (bg-card, border-border, surface-glass, subtle shadow, rounded), `.glass-panel--popover` (popovers/dialogs, slightly stronger border and shadow), `.glass-hover` (lift + brand glow using `--brand-glow` / `--brand-border`). No new page-level styles.
+- **Primitives use glass panel**: Card root uses `.glass-panel`. DialogContent, SheetContent, PopoverContent, DropdownMenuContent, and DropdownMenuSubContent use `.glass-panel` + `.glass-panel--popover`. Sheet keeps single-edge border via variants; Dialog/Popover/Dropdown keep existing layout and animation classes.
+
+### Changed - App foundation (layout, theme, primitives)
+- **Scroll contract**: Document/body no longer scrolls; primary scroll container is the main content pane in the app shell. Header and sidebar stay fixed. Content padding reduced from p-6 to p-4.
+- **Dark-only theme**: App is dark-only. `:root` tokens set to dark “liquid glass” palette; glass vars added (`--surface`, `--surface-border`, `--surface-blur`). Radius tokens: `--radius` 6px; button/input 4px; modal 8px.
+- **UI primitives**: Card, Dialog, Sheet, DropdownMenu, Popover, Tooltip, and GlobalSearch updated to use theme tokens (bg-card, border-border, bg-popover, etc.) and tighter spacing/radius. Removed hardcoded #171717, border-gray-700. Top bar uses backdrop blur.
+- **DataTableViewport**: New reusable wrapper for large tables (100+ rows). Optional max height (default min(60vh, 520px)), optional sticky header slot; scroll body uses overflow-auto. Small tables can remain unwrapped.
+
+### Fixed - NBA The Market
+- **One row per player+market**: Table now shows a single main row per (event, player, stat). Primary line is chosen as the line with the most books (distinct sportsbooks); ties broken by preferring FanDuel/DraftKings. Previously: most common “main” line across books (e.g. 22.5 when most books have 22.5). Any other line—including another book’s main line (e.g. Hard Rock 23.5)—appears only in the accordion “Alternate lines” dropdown, so the accordion no longer breaks from multiple top-level rows for the same prop.
+- **Wrong player after changing filter**: Reset `currentPage` to 1 and clear `expandedRowKeys` when `selectedPlayer`, `selectedStat`, `anchorBookId`, `sideFilter`, or `sideSplit` change so the table always shows the first page of the current filtered set and accordions don’t retain the previous player’s state.
+- **Filter robustness**: Player and stat filters now compare trimmed values so leading/trailing spaces don’t prevent matches.
+- **Expand key**: Accordion expand key now includes `event_id` so expanding is per (event, player, stat) when the same player appears in multiple games.
+
+### Changed - NBA The Market (UI)
+- Refresh button uses same outline/border style as other header icon buttons.
+- **Clear all filters** button (Eraser icon) in top right: resets player (all), stat (Points default), anchor (all), Pinnacle/Circa off, side filter (both), and sort; tooltip “Clear all filters”.
+- **Sortable columns**: Player, Market, Side (when split), and Line headers are clickable; click to sort asc/desc with ChevronUp/ChevronDown indicator.
+- When Side is split, odds cells use larger font (`text-lg`) for better readability.
+
+### Added - NBA Player Props (The Market + +EV)
+- Enabled NBA in the sports selector (`available: true`) and added NBA nav: **The Market** → `/nba/market`, **+EV** → `/nba/ev`.
+- Added API route `/api/nba/props`: parameterized BigQuery query (table `nba25-475715.webapp.nba_player_props_long_v1`), in-memory cache keyed by `start_date`/`end_date`, TTL from `PROPS_CACHE_TTL_SECONDS` (default 45s), and `Cache-Control: s-maxage=45, stale-while-revalidate=60` for edge/CDN. Response shape: `{ meta, data: { propGroups, flatSelections } }`.
+- Added `src/lib/nba/transform-props.ts` to transform raw rows into grouped prop groups (with sides, best price/EV/edge per book) and flat selections. Route stays thin: parse params, cache get/set, query, transform, return JSON.
+- Added `src/lib/nba/types.ts` for PropGroup, BookPrice, FlatSelection, and API types. Added NBA BigQuery client in `src/lib/bigquery.ts` (same pattern as NHL/MLB: `NBA_GCP_PROJECT_ID`, `NBA_GCP_KEY_FILE`).
+- **The Market** (`/nba/market`): Odds screen with client-side filters (player, stat, alt lines, Pinnacle/Circa only, min EV), memoized `groups = Object.values(propGroups)`, and virtualized table (TanStack Table + @tanstack/react-virtual).
+- **+EV** (`/nba/ev`): Flat list of selections with default filter `ev_per_dollar != null`, debug toggle “Show all props even without fair_prob”, min EV/Edge filters, and virtualized table with deeplinks.
+- Single fetch on load for both pages; no refetch on filter changes. Alt lines always returned by API; UI toggle filters client-side on `is_alt_line`.
+
+### Changed - NBA The Market & +EV Overhaul
+- **Shared data / fast second page**: Added React Query (`@tanstack/react-query`) and `useNbaProps()` hook so The Market and +EV share one cached payload (5 min stale). Navigating between pages uses cache — no second full load.
+- **Full width**: Removed `max-w-7xl`; content uses full width next to the sidebar.
+- **Aligned tables**: Replaced table + absolute-positioned virtual rows with a **CSS Grid** layout. Header and each virtualized row use the same `gridTemplateColumns`, so columns stay aligned (Game, Player, Market, books, Best EV on Market; same idea on +EV).
+- **Compact filters**: Single-row filter bar (player search, stat, min EV%, then a "Filters" popover for toggles like alt lines / Pinnacle-Circa only / show all). Removed large card and multi-row filter layout.
+- **Accent styling**: +EV values and Best EV use `text-emerald-500`; Bet/deeplink buttons use emerald accent. Dark card backgrounds (`#171717`, `#1a1a1a`) with subtle borders.
+- **The Market – combo filters**: Player and Stat are now searchable combo controls (Combobox) with “All players” / “All stats” and active-state ring when a filter is set.
+- **The Market – column reorder**: “Column reorder” button toggles drag-and-drop mode on book header logos; “Done” confirms. Order persisted in component state; visible books reorder, hidden books stay at end.
+- **The Market – books filter**: “Books to show” in the Filters popover is a grid of logo cards (logo + label, checkbox) with emerald border when selected.
+- **The Market – over/under odds**: Odds cells show stacked layout: Over (e.g. “O +170”), line in the middle, Under (e.g. “U -210”); best over and best under in each row highlighted in emerald.
+- **The Market – header**: GAME, PLAYER, MARKET labels use `items-center` and `py-0.5` so they’re vertically centered; book logos increased (h-12 w-12) with reduced padding so the header doesn’t grow.
+- **The Market – horizontal scroll**: Table lives in a single scroll container with `max-w-full overflow-auto` so horizontal scroll is inside the card and the page never exceeds screen width.
+- **The Market – filter/UX overhaul (Feb 2025)**:
+  - Player and Prop comboboxes: wider triggers (`w-52` / `w-44`), dropdown content `contentMinWidth` (280px / 260px), row borders between options, checkbox-style selection (Square/CheckSquare icons). "Stat" label renamed to "Prop"; placeholders/labels use "props".
+  - Page layout: root container `h-[calc(100vh-5rem)] max-w-[95%] overflow-hidden` so the page never scrolls; only the table area scrolls (horizontal and vertical) inside the card.
+  - Odds cells: fixed row height (44px), stacked layout (over odds → line → under odds) with no O/U prefix in display; best over/under per row highlighted in emerald.
+  - Default book column order: Pinnacle, Circa, FanDuel, DraftKings, BetMGM, Caesars, Fanatics, theScore, Bet365, then remaining books (`DEFAULT_MARKET_BOOK_ORDER` in sportsbook-logos).
+  - Filters popover: width 380px, 5-column grid for books; column reorder removed from Filters (reorder only via "Column reorder" button).
+  - Minimum EV filter removed.
+  - Refresh: icon-only button, moved to far right of header; Filters: icon-only button, left of Column reorder.
+  - Default prop filter: "Points" (selectedStat initial `"points"`).
+  - Pagination: 50 rows per page, footer with "X–Y of Z" and prev/next; table body shows current page only; vertical scroll only within table container.
+  - Prop names: combo stats formatted with space and capitalization after "+" (e.g. "Points + Assists", "Blocks + Steals") via `formatPropLabel`.
+
 ### Added - MLB Pitch Matrix
 - Added the MLB Pitch Matrix tool with Lineups/Batter/Pitcher tabs and a lineup grid that aligns pitcher pitch types across batter rows.
 - Added MLB BVP API routes for team/batter/pitcher payloads with daily cache reset at 4:00 AM America/New_York.

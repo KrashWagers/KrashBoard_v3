@@ -50,6 +50,7 @@ export const TABLES = {
 let bigqueryInstance: BigQuery | null = null
 let nhlBigqueryInstance: BigQuery | null = null
 let mlbBigqueryInstance: BigQuery | null = null
+let nbaBigqueryInstance: BigQuery | null = null
 
 function getBigQueryClient(): BigQuery {
   if (!bigqueryInstance) {
@@ -85,6 +86,18 @@ function getMlbBigQueryClient(): BigQuery {
     )
   }
   return mlbBigqueryInstance
+}
+
+function getNbaBigQueryClient(): BigQuery {
+  if (!nbaBigqueryInstance) {
+    nbaBigqueryInstance = new BigQuery(
+      getBigQueryConfig(
+        process.env.NBA_GCP_PROJECT_ID || 'nba25-475715',
+        'NBA_GCP_KEY_FILE'
+      )
+    )
+  }
+  return nbaBigqueryInstance
 }
 
 // Generic query function
@@ -140,6 +153,25 @@ export async function queryMlbBigQuery<T = unknown>(
   } catch (error) {
     logger.error('MLB BigQuery query failed', error)
     throw new Error(`MLB BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export async function queryNbaBigQuery<T = unknown>(
+  query: string,
+  params?: Record<string, any>,
+  options?: { maxResults?: number; timeoutMs?: number }
+): Promise<T[]> {
+  try {
+    const bigquery = getNbaBigQueryClient()
+    const [rows] = await bigquery.query({
+      query,
+      params,
+      ...options,
+    })
+    return rows as T[]
+  } catch (error) {
+    logger.error('NBA BigQuery query failed', error)
+    throw new Error(`NBA BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

@@ -23,6 +23,11 @@ const envSchema = z.object({
   NHL_GCP_PROJECT_ID: z.string().min(1).optional(),
   NHL_GCP_KEY_FILE: z.string().min(1).optional(),
 
+  // BigQuery NBA
+  NBA_GCP_PROJECT_ID: z.string().min(1).optional(),
+  NBA_GCP_KEY_FILE: z.string().min(1).optional(),
+  PROPS_CACHE_TTL_SECONDS: z.string().optional(),
+
   // App Config
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_NAME: z.string().optional(),
@@ -50,6 +55,9 @@ export function validateEnv(): Env {
       GOOGLE_CLOUD_KEY_FILE: process.env.GOOGLE_CLOUD_KEY_FILE,
       NHL_GCP_PROJECT_ID: process.env.NHL_GCP_PROJECT_ID,
       NHL_GCP_KEY_FILE: process.env.NHL_GCP_KEY_FILE,
+      NBA_GCP_PROJECT_ID: process.env.NBA_GCP_PROJECT_ID,
+      NBA_GCP_KEY_FILE: process.env.NBA_GCP_KEY_FILE,
+      PROPS_CACHE_TTL_SECONDS: process.env.PROPS_CACHE_TTL_SECONDS,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
       NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID,

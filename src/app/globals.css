@@ -2,95 +2,175 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --radius: 0.5rem;
-    /* Light Mode Palette */
-    --background: 238 242 247; /* #EEF1F5 */
-    --foreground: 222 84% 5%; /* #0F172A */
-    --surface-base: 0 0% 100%; /* #FFFFFF */
-    --card: 0 0% 100%; /* #FFFFFF */
-    --card-hover: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 222 84% 5%; /* #0F172A */
-    --green-base: 142 76% 36%; /* #22C55E */
-    --green-dark: 142 71% 45%; /* #16A34A */
-    --section-title: 215 28% 17%; /* #1E293B */
-    --chart-title: 215 28% 17%; /* #1E293B */
-    --secondary-label: 215 25% 27%; /* #475569 */
-    --muted-metadata: 215 16% 47%; /* #64748B */
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 215 16% 47%; /* #64748B */
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --border: 0 0% 89.8%;
-    --border-subtle: 222 47% 11%; /* rgba(15, 23, 42, 0.08) */
-    --border-hover: 222 47% 11%; /* rgba(15, 23, 42, 0.12) */
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --destructive-foreground: 0 0% 98%;
-    --sidebar-background: 0 0% 98%;
-  }
+/* Corra Montserra — custom font family (public/Fonts) */
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Extralight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Extrabold.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Corra Montserra";
+  src: url("/Fonts/Corra Montserra Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
 
-  .dark {
-    /* Dark Mode Palette - Layered System */
-    --background: 220 18% 7%; /* #0B0E13 */
+/* Use system UI only for the % symbol (U+0025); all other text stays Corra Montserra */
+@font-face {
+  font-family: "Percent Fallback";
+  src: local("Segoe UI"), local("Helvetica Neue"), local("Arial");
+  unicode-range: U+0025;
+}
+
+@layer base {
+  /* Dark-only, Apple liquid glass. Brand accent #30c9f7. Neutral charcoal (no blue cast). */
+  :root {
+    --radius: 6px;
+    --app-header-h: 64px; /* main app header height; use for sticky sub-bars (e.g. Pitch Matrix) */
+    /* Brand accent #30c9f7 — use for primary, focus, active states, subtle glow only */
+    --brand: 194 91% 58%;
+    --brand-glow: 194 91% 58% / 0.12;
+    --brand-border: 194 91% 58% / 0.25;
+    /* Background: neutral charcoal, no blue tint */
+    --background: 0 0% 6%;
     --foreground: 0 0% 98%;
-    --surface-base: 220 20% 11%; /* #10151C */
-    --card: 220 25% 15%; /* #141A23 */
-    --card-hover: 220 28% 19%; /* #182030 */
-    --active-selected: 220 32% 24%; /* #1E2A3B */
+    /* Frosted glass surfaces */
+    --surface: 0 0% 10% / 0.88;
+    --surface-border: 0 0% 100% / 0.09;
+    --surface-blur: 14px;
+    --card: 0 0% 11% / 0.9;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 9%; /* Neutral dark grey instead of blue-tinted */
+    --popover: 0 0% 10% / 0.95;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
+    /* UI — primary/ring use brand for buttons, focus, actionable */
+    --primary: 194 91% 58%;
     --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --secondary: 0 0% 14%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 0 0% 14%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --border: 0 0% 14.9%;
-    --border-subtle: 0 0% 100%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 194 91% 58%;
+    /* Sidebar — glass + brand for active indicator */
+    --sidebar: 0 0% 8% / 0.92;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 194 91% 58%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 100% / 0.08;
+    --sidebar-ring: 194 91% 58%;
+    --sidebar-background: 0 0% 8%;
+    /* Chart (unchanged for existing usage) */
+    --chart-1: 194 91% 58%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar: 220 18% 10%;
-    --sidebar-foreground: 0 0% 92%;
-    --sidebar-primary: 164 84% 39%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 18%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 220 14% 22%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --chart-title: 0 0% 100%;
+  }
+
+  /* Compatibility: .dark mirrors :root. */
+  .dark {
+    --radius: 6px;
+    --app-header-h: 64px;
+    --brand: 194 91% 58%;
+    --brand-glow: 194 91% 58% / 0.12;
+    --brand-border: 194 91% 58% / 0.25;
+    --background: 0 0% 6%;
+    --foreground: 0 0% 98%;
+    --surface: 0 0% 10% / 0.88;
+    --surface-border: 0 0% 100% / 0.09;
+    --surface-blur: 14px;
+    --card: 0 0% 11% / 0.9;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10% / 0.95;
+    --popover-foreground: 0 0% 98%;
+    --primary: 194 91% 58%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --sidebar-background: 240 5.9% 10%;
-    --chart-title: 0 0% 100%; /* White for dark mode */
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 194 91% 58%;
+    --sidebar: 0 0% 8% / 0.92;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 194 91% 58%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 100% / 0.08;
+    --sidebar-ring: 194 91% 58%;
+    --sidebar-background: 0 0% 8%;
+    --chart-1: 194 91% 58%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --chart-title: 0 0% 100%;
   }
 }
 
@@ -98,265 +178,151 @@
   * {
     @apply border-border;
   }
+  html,
   body {
-    @apply bg-background text-foreground;
+    height: 100%;
+  }
+  body {
+    font-family: "Percent Fallback", "Corra Montserra", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    overflow: hidden;
+    position: relative;
+    /* Subtle global depth: soft vertical gradient, no blue cast, almost imperceptible */
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 7%) 0%,
+      hsl(var(--background)) 20%,
+      hsl(var(--background)) 80%,
+      hsl(0 0% 5%) 100%
+    );
+    @apply text-foreground;
     transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-}
 
-@layer utilities {
-  /* Card Glass Effect */
-  .card-glass {
-    background: hsl(var(--card));
-  }
-  
-  .dark .card-glass {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  
-  /* Primary Card (Player header, filters) */
-  .card-primary {
-    border: 1px solid rgba(15, 23, 42, 0.14);
-    box-shadow: 
-      0 2px 4px rgba(0, 0, 0, 0.06),
-      0 12px 32px rgba(0, 0, 0, 0.12);
-  }
-  
-  .dark .card-primary {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  }
-  
-  /* Secondary Card (Charts, tables) */
-  .card-secondary {
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 6px 18px rgba(0, 0, 0, 0.08);
-  }
-  
-  .dark .card-secondary {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  }
-  
-  /* Card Hover Glow */
-  .card-hover-glow {
-    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  /* Light Mode Hover */
-  .card-hover-glow:hover {
-    transform: translateY(-1px);
-    border-color: rgba(34, 197, 94, 0.2);
-    box-shadow: 
-      0 2px 4px rgba(0, 0, 0, 0.06),
-      0 12px 32px rgba(0, 0, 0, 0.12),
-      0 16px 40px rgba(0, 0, 0, 0.14);
-  }
-  
-  /* Dark Mode Hover */
-  .dark .card-hover-glow:hover {
-    transform: translateY(-2px);
-    border-color: rgba(0, 255, 153, 0.4);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 255, 153, 0.2);
-  }
-  
-  /* Active/Selected State */
-  .card-active {
-    border-left: 2px solid #16A34A;
-    background: rgba(34, 197, 94, 0.06);
-  }
-  
-  .dark .card-active {
-    border-left: 2px solid rgba(0, 255, 153, 0.4);
-    background: rgba(0, 255, 153, 0.05);
-  }
-}
-
-@layer utilities {
-  /* MLB Scoped Theme */
-  body.mlb-mode {
-    --mlb-accent: 73 193 251;
-    --mlb-radius: 4px;
-    --mlb-card-border: rgba(255, 255, 255, 0.08);
-    --mlb-card-border-strong: rgba(255, 255, 255, 0.14);
-    --mlb-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.45);
-    --mlb-shadow-strong: 0 18px 50px rgba(0, 0, 0, 0.55);
-    --mlb-glass-bg: linear-gradient(
-      135deg,
-      rgba(8, 10, 14, 0.08),
-      rgba(73, 193, 251, 0.06)
-    );
-    --mlb-glass-border: rgba(255, 255, 255, 0.12);
-    --mlb-glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 16px 40px rgba(0, 0, 0, 0.55);
-    --mlb-glass-blur: blur(16px);
-    background:
-      radial-gradient(1400px 700px at 10% -12%, rgba(73, 193, 251, 0.35), transparent 60%),
-      radial-gradient(1200px 600px at 50% -10%, rgba(73, 193, 251, 0.18), transparent 65%),
-      radial-gradient(900px 500px at 92% 0%, rgba(73, 193, 251, 0.22), transparent 55%),
-      linear-gradient(180deg, #090c11 0%, #0b0f15 45%, #080a0f 100%);
-    position: relative;
-    background-attachment: fixed;
-  }
-
-  body.mlb-mode::before {
+  /* Ultra-subtle texture overlay: fixed, non-interactive, barely perceptible. */
+  body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
-    opacity: 0.18;
-    mix-blend-mode: soft-light;
-    pointer-events: none;
     z-index: 0;
+    pointer-events: none;
+    background: repeating-radial-gradient(
+      circle at 0 0,
+      rgba(255, 255, 255, 0.06) 0,
+      transparent 2px
+    );
+    background-size: 6px 6px;
+    opacity: 0.06;
+    mix-blend-mode: soft-light;
+  }
+}
+
+@layer utilities {
+  /* Glass blur — use on cards, header, sidebar, popovers */
+  .surface-glass {
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
   }
 
-  body.mlb-mode [data-mlb-topbar] {
-    position: sticky;
-    background: var(--mlb-glass-bg);
-    border-bottom-color: var(--mlb-glass-border);
-    box-shadow: var(--mlb-glass-shadow);
-    backdrop-filter: var(--mlb-glass-blur);
-    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  /* Unified glass panel: bg-card, border, surface-glass, subtle shadow, rounded */
+  .glass-panel {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
-  body.mlb-mode [data-mlb-topbar] > * {
-    position: relative;
-    z-index: 1;
+  .glass-panel,
+  .glass-panel--popover {
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
   }
 
-  body.mlb-mode [data-sidebar="sidebar"] {
-    position: relative;
-    background: var(--mlb-glass-bg);
-    border-color: var(--mlb-glass-border);
-    box-shadow: var(--mlb-glass-shadow);
-    backdrop-filter: var(--mlb-glass-blur);
-    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  .glass-panel--popover {
+    border-color: hsl(var(--surface-border));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   }
 
-  body.mlb-mode .mlb-glass-tile {
-    background: var(--mlb-glass-bg);
-    border: 1px solid var(--mlb-glass-border);
-    box-shadow: var(--mlb-glass-shadow);
-    backdrop-filter: var(--mlb-glass-blur);
-    -webkit-backdrop-filter: var(--mlb-glass-blur);
+  /* Lift + brand glow on hover — reuse existing tokens */
+  .glass-hover {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out;
   }
 
-  body.mlb-mode .mlb-glass-tile:hover {
-    border-color: rgba(73, 193, 251, 0.32);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.16),
-      0 20px 50px rgba(0, 0, 0, 0.6),
-      0 0 0 1px rgba(73, 193, 251, 0.25);
-  }
-
-  body.mlb-mode .mlb-glass-hero {
-    background: var(--mlb-glass-bg);
-    border: 1px solid var(--mlb-glass-border);
-    box-shadow: var(--mlb-glass-shadow);
-    backdrop-filter: var(--mlb-glass-blur);
-    -webkit-backdrop-filter: var(--mlb-glass-blur);
-  }
-
-  .mlb-scope {
-    position: relative;
-    z-index: 1;
-  }
-
-  .mlb-shell {
-    position: relative;
-    z-index: 1;
-  }
-
-  .mlb-card {
-    border-radius: var(--mlb-radius);
-    border: 1px solid var(--mlb-glass-border);
-    background: var(--mlb-glass-bg) !important;
-    box-shadow: var(--mlb-glass-shadow);
-    backdrop-filter: var(--mlb-glass-blur);
-    -webkit-backdrop-filter: var(--mlb-glass-blur);
-    position: relative;
-    overflow: hidden;
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-  }
-
-  .mlb-card > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .mlb-card::after {
-    content: none;
-  }
-
-  body.mlb-mode [data-sidebar="sidebar"][data-mobile="true"] {
-    z-index: 60;
-    background: var(--mlb-glass-bg);
-  }
-
-  .mlb-card:hover {
+  .glass-hover:hover {
     transform: translateY(-2px);
-    border-color: rgba(73, 193, 251, 0.45);
-    box-shadow: var(--mlb-shadow-strong), 0 0 0 1px rgba(73, 193, 251, 0.2);
+    border-color: hsl(var(--brand-border));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px hsl(var(--brand-glow));
   }
 
-  .mlb-card-muted {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)) !important;
-    background-color: rgba(7, 9, 13, 0.14) !important;
+  /* Card glass — token-only */
+  .card-glass {
+    background: hsl(var(--card));
   }
 
-  .mlb-card-hero {
-    border-color: var(--mlb-card-border-strong);
-    box-shadow: var(--mlb-shadow-strong);
+  /* Primary / secondary card — token borders and depth */
+  .card-primary {
+    border: 1px solid hsl(var(--surface-border));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
-  .mlb-section-title {
-    position: relative;
-    padding-left: 12px;
+  .card-secondary {
+    border: 1px solid hsl(var(--surface-border));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 
-  .mlb-section-title::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 70%;
-    border-radius: 9999px;
-    background: linear-gradient(180deg, rgba(73, 193, 251, 0.9), rgba(73, 193, 251, 0.4));
-    box-shadow: 0 0 10px rgba(73, 193, 251, 0.35);
+  /* Hover: slight elevation + subtle accent border glow (brand #30c9f7), smooth transition */
+  .card-hover-glow {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out;
   }
 
-  .mlb-nav-link {
-    border-radius: calc(var(--mlb-radius) - 1px);
-    border: 1px solid transparent;
-    padding: 6px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  .card-hover-glow:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--brand-border));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px hsl(var(--brand-glow));
   }
 
-  .mlb-nav-link-active {
-    border-color: rgba(73, 193, 251, 0.5);
-    background: rgba(73, 193, 251, 0.12);
-    color: rgba(240, 248, 255, 0.95);
-    box-shadow: inset 0 0 0 1px rgba(73, 193, 251, 0.15);
+  /* Active/selected — brand accent, restrained */
+  .card-active {
+    border-left: 2px solid hsl(var(--primary));
+    background: hsl(var(--brand-glow));
   }
 
-  .mlb-nav-link-inactive {
-    color: rgba(226, 232, 240, 0.7);
+  /* Table helpers — apply to <tr>, <thead> / <th>, <td> / <th> as needed */
+  .table-row-hover {
+    transition: background-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out;
   }
 
-  .mlb-nav-link-inactive:hover {
-    border-color: rgba(73, 193, 251, 0.35);
-    color: rgba(240, 248, 255, 0.95);
+  .table-row-hover:hover {
+    transform: translateY(-1px);
+    background-color: hsl(var(--muted) / 0.5);
+    box-shadow: inset 0 0 0 1px hsl(var(--brand-glow));
+  }
+
+  .table-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: hsl(var(--card) / 0.98);
+    border-bottom: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 0 0 hsl(var(--brand-border) / 0.15);
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
+  }
+
+  .table-cell-muted {
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+/* Optional: interactive surface — elevation + accent glow on hover. Apply to cards/panels that should feel “alive”. */
+@layer utilities {
+  .interactive-surface {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out;
+  }
+
+  .interactive-surface:hover {
+    transform: translateY(-1px);
+    border-color: hsl(var(--brand-border));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px hsl(var(--brand-glow));
   }
 }
 

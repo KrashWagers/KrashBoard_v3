@@ -9,6 +9,9 @@ const config: Config = {
   darkMode: ['class', 'class'],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ['"Percent Fallback"', '"Corra Montserra"', 'ui-sans-serif', 'system-ui', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"'],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -43,6 +46,10 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
+  			surface: {
+  				DEFAULT: 'hsl(var(--surface))',
+  				border: 'hsl(var(--surface-border))'
+  			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
@@ -62,14 +69,14 @@ const config: Config = {
   			}
   		},
 		borderRadius: {
-			'card-outer': '14px',
+			'card-outer': '8px',
 			'card-inner': '4px',
 			button: '4px',
 			input: '4px',
 			modal: '8px',
 			lg: 'var(--radius)',
 			md: 'calc(var(--radius) - 2px)',
-			sm: 'calc(var(--radius) - 4px)'
+			sm: '4px'
 		},
   		spacing: {
   			'card-padding': '16px',

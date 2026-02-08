@@ -1,16 +1,14 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/components/providers/query-provider"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SportsSelector } from "@/components/sports-selector"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { MainContentArea } from "@/components/main-content-area"
 import { PageTitle } from "@/components/page-title"
 import { NavbarBackButton } from "@/components/navbar-back-button"
 import { GlobalSearch } from "@/components/global-search"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "KrashBoard V3 - Sports Analytics & Betting Dashboard",
@@ -51,20 +49,22 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning className="dark">
+      <body>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
-          <SidebarProvider>
+          <QueryProvider>
+          <SidebarProvider className="h-full min-h-0 overflow-hidden">
             <AppSidebar />
-            <main className="flex-1 flex flex-col">
+            <main className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">
               <div
                 data-mlb-topbar
-                className="flex h-12 items-center justify-between px-4 border-b bg-sidebar dark:bg-sidebar border-sidebar-border sticky top-0 z-50 transition-all duration-200"
+                className="flex flex-shrink-0 items-center justify-between px-4 border-b border-sidebar-border bg-sidebar/95 surface-glass sticky top-0 z-40 transition-all duration-200"
+                style={{ height: "var(--app-header-h)" }}
               >
                 <div className="flex items-center gap-4">
                   <SidebarTrigger />
@@ -77,13 +77,10 @@ export default function RootLayout({
                   <GlobalSearch />
                 </div>
               </div>
-              <div className="flex-1 p-6">
-                <ErrorBoundary>
-                  {children}
-                </ErrorBoundary>
-              </div>
+              <MainContentArea>{children}</MainContentArea>
             </main>
           </SidebarProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

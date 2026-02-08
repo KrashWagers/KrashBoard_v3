@@ -137,7 +137,8 @@ const navigationBySport: Record<string, NavItem[]> = {
     { title: "Scores", url: "/nba/scores", icon: Activity },
     { title: "Lineups", url: "/nba/lineups", icon: Users },
     { title: "Prop Lab", url: "/nba/prop-lab", icon: Calculator },
-    { title: "Market", url: "/nba/market", icon: TrendingUp },
+    { title: "The Market", url: "/nba/market", icon: TrendingUp },
+    { title: "+EV", url: "/nba/ev", icon: Zap },
   ],
   mlb: [
     { title: "Scores", url: "/mlb/scores", icon: Activity },

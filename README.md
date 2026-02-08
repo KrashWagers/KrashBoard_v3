@@ -97,6 +97,10 @@ src/
 - `odds.Player_Props`: Player prop betting lines
 - `odds.team_markets`: Team betting markets
 
+### NBA Player Props (The Market / +EV)
+- **Data flow**: One cached payload from `/api/nba/props` (BigQuery table `nba25-475715.webapp.nba_player_props_long_v1`). Server-side in-memory cache keyed by `start_date`/`end_date`; all filtering and sorting is client-side. No refetch when filters change.
+- **Env vars**: `NBA_GCP_PROJECT_ID` (default `nba25-475715`), `NBA_GCP_KEY_FILE` (same pattern as NHL/MLB), `PROPS_CACHE_TTL_SECONDS` (default 45). Response includes `Cache-Control: s-maxage=45, stale-while-revalidate=60` for edge caching.
+
 ## 🎨 Design System
 
 ### Color Palette

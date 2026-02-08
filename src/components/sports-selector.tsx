@@ -34,7 +34,7 @@ const sports = [
     name: "NBA",
     href: "/nba",
     logo: "/Images/League_Logos/NBA-Logo.png",
-    available: false,
+    available: true,
   },
   {
     id: "mlb",

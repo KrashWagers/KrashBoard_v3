@@ -239,7 +239,7 @@ export function GlobalSearch() {
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          className="h-9 w-[220px] justify-between bg-[#171717] border border-gray-700 text-muted-foreground hover:text-foreground"
+          className="h-9 w-[220px] justify-between bg-card border-border text-muted-foreground hover:text-foreground"
         >
           <span className="flex items-center gap-2 text-sm">
             <Search className="h-4 w-4" />
@@ -247,8 +247,8 @@ export function GlobalSearch() {
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="border border-gray-700 bg-[#171717] p-0 shadow-lg">
-        <Card className="w-full max-w-xl rounded-md border-0 bg-transparent">
+      <DialogContent className="p-0">
+        <Card className="w-full max-w-xl border-0 bg-transparent shadow-none">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -275,7 +275,7 @@ export function GlobalSearch() {
                     variant="outline"
                     size="sm"
                     onClick={() => setActiveTab(tab.id as "all" | "players" | "teams")}
-                    className={`h-8 gap-2 border-gray-700 ${isActive ? "bg-muted text-foreground" : "text-muted-foreground"}`}
+                    className={`h-8 gap-2 border-border ${isActive ? "bg-muted text-foreground" : "text-muted-foreground"}`}
                   >
                     <Icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -286,17 +286,17 @@ export function GlobalSearch() {
 
             <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1">
               {loading && (
-                <div className="rounded-md border border-gray-700 bg-[#1d1d1d] px-3 py-2 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/80 px-3 py-2 text-sm text-muted-foreground">
                   Searching {activeSport.label}…
                 </div>
               )}
               {!loading && query.trim().length < 2 && (
-                <div className="rounded-md border border-gray-700 bg-[#1d1d1d] px-3 py-2 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/80 px-3 py-2 text-sm text-muted-foreground">
                   Start typing to search {activeSport.label} players or teams.
                 </div>
               )}
               {!loading && query.trim().length >= 2 && filteredResults.length === 0 && (
-                <div className="rounded-md border border-gray-700 bg-[#1d1d1d] px-3 py-2 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-border bg-muted/80 px-3 py-2 text-sm text-muted-foreground">
                   No results for “{query}”.
                 </div>
               )}
@@ -307,9 +307,9 @@ export function GlobalSearch() {
                     <button
                       key={`player-${result.id}`}
                       onClick={() => handlePlayerSelect(result)}
-                      className="flex w-full items-center gap-3 rounded-md border border-gray-700 bg-[#1d1d1d] px-3 py-2 text-left transition hover:border-gray-600"
+                      className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/80 px-3 py-2 text-left transition hover:bg-muted hover:border-border"
                     >
-                      <div className="h-9 w-9 overflow-hidden rounded-full border border-gray-700 bg-[#111]">
+                      <div className="h-9 w-9 overflow-hidden rounded-full border border-border bg-background">
                         {result.headshotUrl ? (
                           <Image
                             src={result.headshotUrl}
@@ -330,7 +330,7 @@ export function GlobalSearch() {
                           <div className="text-xs text-muted-foreground">{result.teamAbbr}</div>
                         )}
                       </div>
-                      <span className="rounded-md border border-gray-700 px-2 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="rounded-button border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                         Player
                       </span>
                     </button>
@@ -341,7 +341,7 @@ export function GlobalSearch() {
                   <button
                     key={`team-${result.abbr}`}
                     onClick={() => handleTeamSelect(result)}
-                    className="flex w-full items-center gap-3 rounded-md border border-gray-700 bg-[#1d1d1d] px-3 py-2 text-left transition hover:border-gray-600"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/80 px-3 py-2 text-left transition hover:bg-muted hover:border-border"
                   >
                     <Image
                       src={result.logoUrl}
@@ -354,7 +354,7 @@ export function GlobalSearch() {
                       <div className="text-sm font-medium text-foreground">{result.name}</div>
                       <div className="text-xs text-muted-foreground">{result.abbr}</div>
                     </div>
-                    <span className="rounded-md border border-gray-700 px-2 py-0.5 text-[10px] text-muted-foreground">
+                    <span className="rounded-button border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                       Team
                     </span>
                   </button>

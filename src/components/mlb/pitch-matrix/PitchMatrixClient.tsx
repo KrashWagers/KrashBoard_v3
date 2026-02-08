@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { motion, useReducedMotion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
@@ -16,22 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { BRAND_TEAL } from "@/lib/brand"
 import mlbTeamColors from "@/data/mlb-team-colors.json"
-
-/** Matchups tab cards: 70% transparent, soft teal glow border, and border shadow */
-const PITCH_MATRIX_CARD_STYLE: React.CSSProperties = {
-  backgroundColor: "rgba(23, 23, 23, 0.3)",
-  borderWidth: 1,
-  borderStyle: "solid",
-  borderColor: "rgba(73, 193, 251, 0.45)",
-  boxShadow: [
-    "0 0 12px rgba(73, 193, 251, 0.22)",
-    "0 0 24px rgba(73, 193, 251, 0.08)",
-    "0 4px 14px rgba(0, 0, 0, 0.25)",
-    "0 2px 6px rgba(0, 0, 0, 0.15)",
-  ].join(", "),
-}
 
 type MlbLineupsTeam = {
   teamAbv: string
@@ -214,30 +200,23 @@ const formatPercent = (value: number | null) => {
   return `${value.toFixed(0)}%`
 }
 
-const getPercentTone = (value: number | null) => {
-  if (value == null) return "text-white/60"
-  if (value >= 75) return "text-green-400"
-  if (value >= 60) return "text-lime-300"
-  if (value >= 45) return "text-yellow-300"
-  if (value >= 30) return "text-orange-300"
-  return "text-red-400"
-}
-
-const getUsageTone = (value: number | null) => {
-  if (value == null) return "text-white/60"
-  if (value >= 0.4) return "text-green-400"
-  if (value >= 0.3) return "text-lime-300"
-  if (value >= 0.2) return "text-yellow-300"
-  if (value >= 0.1) return "text-orange-300"
-  return "text-red-400"
+/** Google Sheets–style: cell background from default (low) to brand blue (high). Returns inline style. */
+const getCellBackgroundStyle = (
+  value: number | null,
+  scale: "percent" | "usage"
+): React.CSSProperties => {
+  if (value == null) return {}
+  const intensity = scale === "usage" ? value : Math.max(0, Math.min(100, value)) / 100
+  const opacity = intensity * 0.32
+  return { backgroundColor: `hsl(var(--primary) / ${opacity})` }
 }
 
 const getPitchValueClass = (value: number | null) =>
-  `${getPercentTone(value)} opacity-80`
+  `text-sm tabular-nums text-foreground`
 const getOvrValueClass = (value: number | null) =>
-  `${getPercentTone(value)} font-semibold`
+  `font-bold tabular-nums text-foreground`
 const getUsageValueClass = (value: number | null) =>
-  `${getUsageTone(value)} opacity-80`
+  `text-sm tabular-nums text-foreground`
 
 type TeamColorEntry = {
   teamAbv: string
@@ -253,7 +232,7 @@ const teamColorMap = new Map(
 
 const getTeamLogoColor = (teamAbv: string): string => {
   const entry = teamColorMap.get(teamAbv)
-  if (!entry) return "#1f2937"
+  if (!entry) return "hsl(var(--muted))"
   if (entry.logoBgColor) return entry.logoBgColor
   return entry.logoBg === "primary" ? entry.primary : entry.secondary
 }
@@ -279,14 +258,15 @@ const computePitchScore = (
   return (avg * wAvg + hr * wHr + barrel * wBarrel + hh * wHh) / total
 }
 
-const computeOverallFromPitches = (pitches: BvpPitch[], mode: WeightMode) => {
+const computeOverallFromPitches = (slots: PitchSlot[], mode: WeightMode) => {
   let totalWeighted = 0
   let totalUsage = 0
 
-  pitches.forEach((pitch) => {
-    const score = computePitchScore(pitch, mode)
+  slots.forEach((slot) => {
+    if (!slot) return
+    const score = computePitchScore(slot, mode)
     if (score == null) return
-    const usage = normalizeUsage(toNumber(pitch.usage_pct)) ?? 0
+    const usage = normalizeUsage(toNumber(slot.usage_pct)) ?? 0
     totalWeighted += score * usage
     totalUsage += usage
   })
@@ -402,10 +382,15 @@ const buildExpectedStartersByStand = (payload: BvpTeamPayload) => {
   return results
 }
 
+const USAGE_MIN_PCT = 0.05
+const PITCH_SLOT_COUNT = 5
+
+/** Qualified pitches (usage >= 5%), sorted by usage desc. */
 const getPitchColumns = (pitcher: BvpPitcher | undefined) => {
   const pitches = pitcher?.pitches ?? []
   return [...pitches]
     .filter((pitch) => pitch.pitch_type)
+    .filter((pitch) => (normalizeUsage(toNumber(pitch.usage_pct)) ?? 0) >= USAGE_MIN_PCT)
     .sort((a, b) => {
       const aUsage = normalizeUsage(toNumber(a.usage_pct)) ?? 0
       const bUsage = normalizeUsage(toNumber(b.usage_pct)) ?? 0
@@ -413,11 +398,20 @@ const getPitchColumns = (pitcher: BvpPitcher | undefined) => {
     })
 }
 
+/** Always 5 slots: qualified pitches (usage >= 5%) in order, then null. */
+type PitchSlot = BvpPitch | null
+const getPitchColumnSlots = (pitcher: BvpPitcher | undefined): PitchSlot[] => {
+  const qualified = getPitchColumns(pitcher)
+  const slots: PitchSlot[] = qualified.slice(0, PITCH_SLOT_COUNT)
+  while (slots.length < PITCH_SLOT_COUNT) slots.push(null)
+  return slots
+}
+
 const buildBatterRows = (
   payload: BvpTeamPayload,
   standKey: string,
   expectedPitcher: BvpPitcher | undefined,
-  pitchColumns: BvpPitch[],
+  pitchSlots: PitchSlot[],
   mode: WeightMode
 ) => {
   const rows: BatterRow[] = []
@@ -441,12 +435,13 @@ const buildBatterRows = (
     let totalWeighted = 0
     let totalUsage = 0
 
-    pitchColumns.forEach((pitchColumn) => {
+    pitchSlots.forEach((slot) => {
+      if (!slot?.pitch_type) return
       const match = pitcher.pitches?.find(
-        (pitch) => pitch.pitch_type === pitchColumn.pitch_type
+        (pitch) => pitch.pitch_type === slot.pitch_type
       )
       const score = match ? computePitchScore(match, mode) : null
-      pitchScores[pitchColumn.pitch_type ?? "-"] = score
+      pitchScores[slot.pitch_type] = score
       if (score != null) {
         const usage = normalizeUsage(toNumber(match?.usage_pct)) ?? 0
         totalWeighted += score * usage
@@ -473,19 +468,20 @@ const buildBatterRows = (
   return rows
 }
 
-/** Compute OVR for a single batter vs pitcher (one stand) */
+/** Compute OVR for a single batter vs pitcher (one stand), using qualified pitches only. */
 const computeBatterVsPitcherOvr = (
   batter: BvpBatter,
   stand: BvpStand,
   pitcher: BvpPitcher,
   mode: WeightMode
 ): number | null => {
-  const pitchColumns = getPitchColumns(pitcher)
+  const slots = getPitchColumnSlots(pitcher)
   let totalWeighted = 0
   let totalUsage = 0
-  pitchColumns.forEach((pitchColumn) => {
+  slots.forEach((slot) => {
+    if (!slot?.pitch_type) return
     const match = pitcher.pitches?.find(
-      (p) => p.pitch_type === pitchColumn.pitch_type
+      (p) => p.pitch_type === slot.pitch_type
     )
     const score = match ? computePitchScore(match, mode) : null
     if (score != null) {
@@ -525,16 +521,17 @@ const buildBatterVsPitcherList = (
         if (!standKey) return
         stand.pitchers?.forEach((pitcher) => {
           if (!matchesPitcherFilter(pitcher, pitcherFilter)) return
-          const pitchColumns = getPitchColumns(pitcher)
+          const slots = getPitchColumnSlots(pitcher)
           const pitchOrder: string[] = []
           const pitchUsage: Record<string, number | null> = {}
           const pitchRatings: Record<string, number | null> = {}
-          pitchColumns.forEach((pitch) => {
-            const pt = pitch.pitch_type ?? ""
-            if (!pt) return
+          slots.forEach((slot) => {
+            const pt = slot?.pitch_type ?? ""
             pitchOrder.push(pt)
-            pitchUsage[pt] = normalizeUsage(toNumber(pitch.usage_pct))
-            pitchRatings[pt] = computePitchScore(pitch, weightMode)
+            if (pt) {
+              pitchUsage[pt] = normalizeUsage(toNumber(slot!.usage_pct))
+              pitchRatings[pt] = computePitchScore(slot!, weightMode)
+            }
           })
           const ovr = computeBatterVsPitcherOvr(batter, stand, pitcher, weightMode)
           rows.push({
@@ -581,8 +578,11 @@ const SortIcon = ({ active, direction }: { active: boolean; direction: "asc" | "
   )
 }
 
+const BATTER_ROW_MAX_VISIBLE = 9
+const BATTER_ROW_HEIGHT_PX = 36
+
 const PitchMatrixTable = ({
-  pitchColumns,
+  pitchSlots,
   rows,
   batterLabel,
   standLabel,
@@ -590,7 +590,7 @@ const PitchMatrixTable = ({
   batterTeamAbv,
   weightMode,
 }: {
-  pitchColumns: BvpPitch[]
+  pitchSlots: PitchSlot[]
   rows: BatterRow[]
   batterLabel: string
   standLabel: string
@@ -604,7 +604,7 @@ const PitchMatrixTable = ({
   React.useEffect(() => {
     setSortKey("overall")
     setSortDir("desc")
-  }, [pitchColumns.length, rows.length])
+  }, [pitchSlots.length, rows.length])
 
   const sortedRows = React.useMemo(() => {
     const next = [...rows]
@@ -635,193 +635,231 @@ const PitchMatrixTable = ({
     }
   }
 
-  const overallPitcherScore = computeOverallFromPitches(pitchColumns, weightMode)
+  const overallPitcherScore = computeOverallFromPitches(pitchSlots, weightMode)
 
-  const totalCols = 2 + pitchColumns.length + 1
+  const colgroup = (
+    <colgroup>
+      <col style={{ width: "190px" }} />
+      <col style={{ width: "70px" }} />
+      {pitchSlots.map((slot, i) => (
+        <col key={slot?.pitch_type ? `col-${slot.pitch_type}` : `col-empty-${i}`} />
+      ))}
+      <col style={{ width: "70px" }} />
+    </colgroup>
+  )
 
   return (
-    <div className="w-full max-w-full min-w-0 overflow-x-auto overflow-hidden">
-      <table className="w-full min-w-0 border-collapse table-fixed">
-        <colgroup>
-          <col style={{ width: "190px" }} />
-          <col style={{ width: "70px" }} />
-          {pitchColumns.map((pitch) => (
-            <col key={`col-${pitch.pitch_type ?? "-"}`} />
-          ))}
-          <col style={{ width: "70px" }} />
-        </colgroup>
-        <thead className="border-b border-gray-700/70 bg-[#151515]">
-          <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2 bg-[#151515]">{standLabel}</th>
-            <th className="px-3 py-2 bg-[#151515]"></th>
-            {pitchColumns.map((pitch) => {
-              const pitchType = pitch.pitch_type ?? "-"
-              return (
-                <th key={pitchType} className="px-3 py-2 text-center bg-[#151515]">
-                  <span title={getPitchFullName(pitch.pitch_type)}>
-                    {getPitchLabel(pitch.pitch_type)}
-                  </span>
-                </th>
-              )
-            })}
-            <th className="px-3 py-2 text-center bg-[#151515]">OVR</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-gray-800/60 text-xs text-white/80">
-            <td className="px-3 py-2 font-semibold">Usage</td>
-            <td className="px-3 py-2 text-muted-foreground"></td>
-            {pitchColumns.map((pitch) => {
-              const usage = normalizeUsage(toNumber(pitch.usage_pct))
-              return (
-                <td
-                  key={pitch.pitch_type ?? "-"}
-                  className={cn("px-3 py-2 text-center", getUsageValueClass(usage))}
-                >
-                  {usage == null ? "-" : `${(usage * 100).toFixed(0)}%`}
-                </td>
-              )
-            })}
-            <td
-              className={cn(
-                "px-3 py-2 text-center text-lg",
-                getOvrValueClass(overallPitcherScore)
-              )}
-              rowSpan={2}
-            >
-              {overallPitcherScore == null ? "-" : formatPercent(overallPitcherScore)}
-            </td>
-          </tr>
-          <tr className="border-b border-gray-800/60 text-xs text-white/90">
-            <td className="px-3 py-2 font-semibold">Pitch Rating</td>
-            <td className="px-3 py-2 text-muted-foreground"></td>
-            {pitchColumns.map((pitch) => {
-              const score = computePitchScore(pitch, weightMode)
-              return (
-                <td
-                  key={pitch.pitch_type ?? "-"}
-                  className={cn("px-3 py-2 text-center", getPitchValueClass(score))}
-                >
-                  {score == null ? "-" : formatPercent(score)}
-                </td>
-              )
-            })}
-          </tr>
-          <tr className="border-b border-gray-800/60 text-xs uppercase tracking-wide text-muted-foreground bg-[#151515]">
-            <th className="px-3 py-2 text-left bg-[#151515]">
-              <button
-                className="flex items-center text-left"
-                onClick={() => handleSort("batter")}
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/15"
-                    style={{
-                      backgroundColor: batterTeamAbv
-                        ? getTeamLogoColor(batterTeamAbv)
-                        : "#1f2937",
-                    }}
-                  >
-                    {batterLogo ? (
-                      <Image
-                        src={batterLogo}
-                        alt={batterTeamAbv ?? "Team"}
-                        width={18}
-                        height={18}
-                        className="h-4 w-4 object-contain"
-                      />
-                    ) : (
-                      <span className="text-[10px] font-semibold text-white/70">
-                        {batterTeamAbv ?? "-"}
-                      </span>
-                    )}
-                  </span>
-                  {batterLabel}
-                </span>
-                <SortIcon active={sortKey === "batter"} direction={sortDir} />
-              </button>
-            </th>
-            <th className="px-3 py-2 text-left bg-[#151515]">Stance</th>
-            {pitchColumns.map((pitch) => {
-              const pitchType = pitch.pitch_type ?? "-"
-              return (
-                <th key={pitchType} className="px-3 py-2 text-center bg-[#151515]">
-                  <button
-                    className="flex items-center justify-center w-full"
-                    onClick={() => handleSort(pitchType)}
-                    title={getPitchFullName(pitch.pitch_type)}
-                  >
-                    {getPitchLabel(pitch.pitch_type)}
-                    <SortIcon active={sortKey === pitchType} direction={sortDir} />
-                  </button>
-                </th>
-              )
-            })}
-            <th className="px-3 py-2 text-center bg-[#151515]">
-              <button
-                className="flex items-center justify-center w-full"
-                onClick={() => handleSort("overall")}
-              >
-                OVR
-                <SortIcon active={sortKey === "overall"} direction={sortDir} />
-              </button>
-            </th>
-          </tr>
-          {sortedRows.map((row) => (
-            <tr
-              key={row.batterId}
-              className="border-b border-gray-800/60 text-sm"
-            >
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  {row.batterHeadshot ? (
-                    <Image
-                      src={row.batterHeadshot}
-                      alt={row.batterName}
-                      width={28}
-                      height={28}
-                      className="h-7 w-7 rounded-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="h-7 w-7 rounded-full bg-muted/40" />
-                  )}
-                  <span className="font-medium text-white/90 whitespace-normal break-words">
-                    {row.batterName}
-                  </span>
-                </div>
-              </td>
-              <td className="px-3 py-2 text-sm text-white/70">{row.stand}</td>
-              {pitchColumns.map((pitch) => {
-                const pitchType = pitch.pitch_type ?? "-"
-                const score = row.pitchScores[pitchType]
+    <div className="flex flex-col min-h-0 w-full max-w-full min-w-0 rounded-md overflow-hidden card-glass">
+      {/* Sticky: pitcher rows + batter header (no scroll) */}
+      <div className="flex-shrink-0 overflow-x-auto">
+        <table className="w-full min-w-0 border-collapse table-fixed">
+          {colgroup}
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-tighter text-foreground bg-muted/80 border-b border-border">
+              <th className="px-3 py-2.5 bg-muted/80 font-semibold">{standLabel}</th>
+              <th className="px-3 py-2.5 bg-muted/80"></th>
+              {pitchSlots.map((slot, i) => {
+                if (!slot) {
+                  return <th key={`empty-${i}`} className="px-3 py-2.5 text-center bg-muted/80 font-semibold" />
+                }
+                const fullName = getPitchFullName(slot.pitch_type)
+                return (
+                  <th key={slot.pitch_type ?? i} className="px-3 py-2.5 text-center bg-muted/80 font-semibold">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-default">{getPitchLabel(slot.pitch_type)}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{fullName || getPitchLabel(slot.pitch_type)}</TooltipContent>
+                    </Tooltip>
+                  </th>
+                )
+              })}
+              <th className="px-3 py-2.5 text-center bg-muted/80 font-semibold border-l border-border/70">OVR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border/50 text-xs h-9">
+              <td className="px-3 py-1.5 text-muted-foreground font-medium">Usage</td>
+              <td className="px-3 py-1.5 text-muted-foreground"></td>
+              {pitchSlots.map((slot, i) => {
+                const usage = slot ? normalizeUsage(toNumber(slot.usage_pct)) : null
                 return (
                   <td
-                    key={pitchType}
-                    className={cn("px-3 py-2 text-center", getPitchValueClass(score))}
+                    key={slot?.pitch_type ? slot.pitch_type : `u-${i}`}
+                    className={cn("px-3 py-1.5 text-center", getUsageValueClass(usage))}
+                    style={getCellBackgroundStyle(usage, "usage")}
+                  >
+                    {usage == null ? "-" : `${(usage * 100).toFixed(0)}%`}
+                  </td>
+                )
+              })}
+              <td
+                className={cn(
+                  "px-3 py-1.5 text-center border-l border-border/50 text-base font-bold",
+                  getOvrValueClass(overallPitcherScore)
+                )}
+                style={getCellBackgroundStyle(overallPitcherScore, "percent")}
+                rowSpan={2}
+              >
+                {overallPitcherScore == null ? "-" : formatPercent(overallPitcherScore)}
+              </td>
+            </tr>
+            <tr className="border-b border-border/50 text-xs h-9">
+              <td className="px-3 py-1.5 text-muted-foreground font-medium">Pitch Rating</td>
+              <td className="px-3 py-1.5 text-muted-foreground"></td>
+              {pitchSlots.map((slot, i) => {
+                const score = slot ? computePitchScore(slot, weightMode) : null
+                return (
+                  <td
+                    key={slot?.pitch_type ? slot.pitch_type : `r-${i}`}
+                    className={cn("px-3 py-1.5 text-center", getPitchValueClass(score))}
+                    style={getCellBackgroundStyle(score, "percent")}
                   >
                     {score == null ? "-" : formatPercent(score)}
                   </td>
                 )
               })}
-              <td
-                className={cn("px-3 py-2 text-center text-base", getOvrValueClass(row.overallScore))}
-              >
-                {row.overallScore == null ? "-" : formatPercent(row.overallScore)}
-              </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
+            <tr className="border-b border-border/50 text-xs uppercase tracking-tighter text-foreground bg-muted/60 h-9">
+              <th className="px-3 py-1.5 text-left bg-muted/60 font-semibold">
+                <button
+                  className="flex items-center text-left"
+                  onClick={() => handleSort("batter")}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-md border border-border"
+                      style={{
+                        backgroundColor: batterTeamAbv
+                          ? getTeamLogoColor(batterTeamAbv)
+                          : "hsl(var(--muted))",
+                      }}
+                    >
+                      {batterLogo ? (
+                        <Image
+                          src={batterLogo}
+                          alt={batterTeamAbv ?? "Team"}
+                          width={18}
+                          height={18}
+                          className="h-4 w-4 object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] font-semibold text-muted-foreground">
+                          {batterTeamAbv ?? "-"}
+                        </span>
+                      )}
+                    </span>
+                    {batterLabel}
+                  </span>
+                  <SortIcon active={sortKey === "batter"} direction={sortDir} />
+                </button>
+              </th>
+              <th className="px-3 py-1.5 text-left bg-muted/60 font-semibold text-foreground">Stance</th>
+              {pitchSlots.map((slot, i) => {
+                if (!slot?.pitch_type) {
+                  return <th key={`empty-h-${i}`} className="px-3 py-1.5 text-center bg-muted/60 font-semibold text-foreground" />
+                }
+                const pitchType = slot.pitch_type
+                const fullName = getPitchFullName(slot.pitch_type)
+                return (
+                  <th key={pitchType} className="px-3 py-1.5 text-center bg-muted/60 font-semibold text-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="flex items-center justify-center w-full font-semibold text-foreground hover:text-primary"
+                          onClick={() => handleSort(pitchType)}
+                        >
+                          {getPitchLabel(slot.pitch_type)}
+                          <SortIcon active={sortKey === pitchType} direction={sortDir} />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{fullName || getPitchLabel(slot.pitch_type)}</TooltipContent>
+                    </Tooltip>
+                  </th>
+                )
+              })}
+              <th className="px-3 py-1.5 text-center bg-muted/60 border-l border-border/70 font-semibold text-foreground">
+                <button
+                  className="flex items-center justify-center w-full hover:text-primary"
+                  onClick={() => handleSort("overall")}
+                >
+                  OVR
+                  <SortIcon active={sortKey === "overall"} direction={sortDir} />
+                </button>
+              </th>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {/* Scroll: only batter data rows (max ~9 rows visible) */}
+      <div
+        className="flex-1 min-h-0 overflow-auto overflow-x-auto"
+        style={{ maxHeight: BATTER_ROW_MAX_VISIBLE * BATTER_ROW_HEIGHT_PX }}
+      >
+        <table className="w-full min-w-0 border-collapse table-fixed">
+          {colgroup}
+          <tbody>
+            {sortedRows.map((row) => (
+              <tr
+                key={row.batterId}
+                className="border-b border-border/50 text-sm table-row-hover h-9 align-middle"
+              >
+                <td className="px-3 py-1.5 align-middle">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {row.batterHeadshot ? (
+                      <Image
+                        src={row.batterHeadshot}
+                        alt={row.batterName}
+                        width={24}
+                        height={24}
+                        className="h-6 w-6 shrink-0 rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="h-6 w-6 shrink-0 rounded-full bg-muted/40" />
+                    )}
+                    <span className="font-medium text-xs text-foreground whitespace-nowrap truncate min-w-0">
+                      {row.batterName}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-3 py-1.5 text-xs text-muted-foreground align-middle">{row.stand}</td>
+                {pitchSlots.map((slot, i) => {
+                  const pitchType = slot?.pitch_type ?? ""
+                  const score = pitchType ? row.pitchScores[pitchType] : null
+                  return (
+                    <td
+                      key={slot?.pitch_type ? pitchType : `cell-${i}`}
+                      className={cn("px-3 py-1.5 text-center align-middle", getPitchValueClass(score))}
+                      style={getCellBackgroundStyle(score, "percent")}
+                    >
+                      {score == null ? "-" : formatPercent(score)}
+                    </td>
+                  )
+                })}
+                <td
+                  className={cn(
+                    "px-3 py-1.5 text-center border-l border-border/50 align-middle",
+                    getOvrValueClass(row.overallScore)
+                  )}
+                  style={getCellBackgroundStyle(row.overallScore, "percent")}
+                >
+                  {row.overallScore == null ? "-" : formatPercent(row.overallScore)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
 const BatterPitchTable = ({
-  pitchColumns,
+  pitchSlots,
   rows,
 }: {
-  pitchColumns: BvpPitch[]
+  pitchSlots: PitchSlot[]
   rows: BatterRow[]
 }) => {
   const [sortKey, setSortKey] = React.useState<string>("overall")
@@ -857,41 +895,50 @@ const BatterPitchTable = ({
   }
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto rounded-md overflow-hidden card-glass">
       <table className="w-full min-w-[760px] border-collapse">
-        <thead className="border-b border-gray-700/70">
-          <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2">
+        <thead className="table-header-sticky">
+          <tr className="text-left text-xs uppercase tracking-tighter text-foreground bg-muted/80 border-b border-border">
+            <th className="px-3 py-2.5 bg-muted/80 font-semibold">
               <button
-                className="flex items-center text-left"
+                className="flex items-center text-left hover:text-primary"
                 onClick={() => handleSort("batter")}
               >
                 Batter
                 <SortIcon active={sortKey === "batter"} direction={sortDir} />
               </button>
             </th>
-            <th className="px-3 py-2">Stance</th>
-            {pitchColumns.map((pitch) => {
-              const pitchType = pitch.pitch_type ?? "-"
-              const usageValue = normalizeUsage(toNumber(pitch.usage_pct))
+            <th className="px-3 py-2.5 bg-muted/80 font-semibold">Stance</th>
+            {pitchSlots.map((slot, i) => {
+              if (!slot) {
+                return <th key={`empty-${i}`} className="px-3 py-2.5 text-center bg-muted/80 font-semibold" />
+              }
+              const pitchType = slot.pitch_type ?? "-"
+              const usageValue = normalizeUsage(toNumber(slot.usage_pct))
+              const fullName = getPitchFullName(slot.pitch_type)
               return (
-                <th key={pitchType} className="px-3 py-2 text-center">
-                  <button
-                    className="flex flex-col items-center w-full"
-                    onClick={() => handleSort(pitchType)}
-                  >
-                    <span>{pitchType}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {usageValue != null ? `${(usageValue * 100).toFixed(0)}%` : "-"}
-                    </span>
-                    <SortIcon active={sortKey === pitchType} direction={sortDir} />
-                  </button>
+                <th key={pitchType} className="px-3 py-2.5 text-center bg-muted/80 font-semibold">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="flex flex-col items-center w-full hover:text-primary"
+                        onClick={() => handleSort(pitchType)}
+                      >
+                        <span>{getPitchLabel(slot.pitch_type)}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {usageValue != null ? `${(usageValue * 100).toFixed(0)}%` : "-"}
+                        </span>
+                        <SortIcon active={sortKey === pitchType} direction={sortDir} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{fullName || getPitchLabel(slot.pitch_type)}</TooltipContent>
+                  </Tooltip>
                 </th>
               )
             })}
-            <th className="px-3 py-2 text-center">
+            <th className="px-3 py-2.5 text-center bg-muted/80 border-l border-border/70 font-semibold">
               <button
-                className="flex items-center justify-center w-full"
+                className="flex items-center justify-center w-full hover:text-primary"
                 onClick={() => handleSort("overall")}
               >
                 OVR
@@ -904,36 +951,45 @@ const BatterPitchTable = ({
           {sortedRows.map((row) => (
             <tr
               key={row.batterId}
-              className="border-b border-gray-800/60 text-sm"
+              className="border-b border-border/50 text-sm table-row-hover h-9 align-middle"
             >
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
+              <td className="px-3 py-1.5 align-middle">
+                <div className="flex items-center gap-2 min-w-0">
                   {row.batterHeadshot ? (
                     <Image
                       src={row.batterHeadshot}
                       alt={row.batterName}
-                      width={28}
-                      height={28}
-                      className="h-7 w-7 rounded-full object-cover"
+                      width={24}
+                      height={24}
+                      className="h-6 w-6 shrink-0 rounded-full object-cover"
                       unoptimized
                     />
                   ) : (
-                    <div className="h-7 w-7 rounded-full bg-muted/40" />
+                    <div className="h-6 w-6 shrink-0 rounded-full bg-muted/40" />
                   )}
-                  <span className="font-medium text-white/90">{row.batterName}</span>
+                  <span className="font-medium text-xs text-foreground whitespace-nowrap truncate min-w-0">
+                    {row.batterName}
+                  </span>
                 </div>
               </td>
-              <td className="px-3 py-2 text-sm text-white/70">{row.stand}</td>
-              {pitchColumns.map((pitch) => {
-                const pitchType = pitch.pitch_type ?? "-"
-                const score = row.pitchScores[pitchType]
+              <td className="px-3 py-1.5 text-xs text-muted-foreground align-middle">{row.stand}</td>
+              {pitchSlots.map((slot, i) => {
+                const pitchType = slot?.pitch_type ?? ""
+                const score = pitchType ? row.pitchScores[pitchType] : null
                 return (
-                  <td key={pitchType} className="px-3 py-2 text-center">
+                  <td
+                    key={slot?.pitch_type ? pitchType : `cell-${i}`}
+                    className={cn("px-3 py-1.5 text-center align-middle", getPitchValueClass(score))}
+                    style={getCellBackgroundStyle(score, "percent")}
+                  >
                     {score == null ? "-" : formatPercent(score)}
                   </td>
                 )
               })}
-              <td className="px-3 py-2 text-center font-semibold text-white/90">
+              <td
+                className={cn("px-3 py-1.5 text-center border-l border-border/50 align-middle", getOvrValueClass(row.overallScore))}
+                style={getCellBackgroundStyle(row.overallScore, "percent")}
+              >
                 {row.overallScore == null ? "-" : formatPercent(row.overallScore)}
               </td>
             </tr>
@@ -955,7 +1011,7 @@ const TeamMatchupCard = ({
 }) => {
   if (!payload) {
     return (
-      <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
+      <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
         <CardContent className="p-4 text-sm text-muted-foreground">
           Loading {label} matchup...
         </CardContent>
@@ -976,11 +1032,11 @@ const TeamMatchupCard = ({
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-4">
           <span
-            className="flex h-14 w-14 items-center justify-center rounded-md border border-white/15"
+            className="flex h-14 w-14 items-center justify-center rounded-md border border-border"
             style={{
               backgroundColor: payload.pitcher_team
                 ? getTeamLogoColor(payload.pitcher_team)
-                : "#1f2937",
+                : "hsl(var(--muted))",
             }}
           >
             {payload.opponent_logo ? (
@@ -992,7 +1048,7 @@ const TeamMatchupCard = ({
                 className="h-10 w-10 object-contain"
               />
             ) : (
-              <span className="text-xs font-semibold text-white/70">
+              <span className="text-xs font-semibold text-muted-foreground">
                 {payload.pitcher_team ?? "-"}
               </span>
             )}
@@ -1024,20 +1080,21 @@ const TeamMatchupCard = ({
         </div>
       </div>
 
+      <TooltipProvider delayDuration={300}>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto_1fr]">
         {stands.map((stand, index) => {
           const expected = expectedByStand.get(stand)
           if (!expected) return null
-          const pitchColumns = getPitchColumns(expected)
-          const batterRows = buildBatterRows(payload, stand, expected, pitchColumns, weightMode)
+          const pitchSlots = getPitchColumnSlots(expected)
+          const batterRows = buildBatterRows(payload, stand, expected, pitchSlots, weightMode)
           return (
             <React.Fragment key={stand}>
               <div className="space-y-2 min-w-0">
                 <PitchMatrixTable
-                  pitchColumns={pitchColumns}
+                  pitchSlots={pitchSlots}
                   rows={batterRows}
-                  batterLabel={`${payload.batter_team ?? label} ${stand}HB`}
-                  standLabel={`vs ${stand}HB`}
+                  batterLabel={`${payload.batter_team ?? label}\u00A0${stand}HB`}
+                  standLabel={`VS\u00A0${stand}HB`}
                   batterLogo={payload.team_logo ?? null}
                   batterTeamAbv={payload.batter_team ?? null}
                   weightMode={weightMode}
@@ -1045,13 +1102,14 @@ const TeamMatchupCard = ({
               </div>
               {index === 0 ? (
                 <div className="hidden xl:flex items-stretch px-2">
-                  <div className="w-[10px] border-l-2 border-r-2 border-gray-700/80" />
+                  <div className="w-[10px] border-l-2 border-r-2 border-border" />
                 </div>
               ) : null}
             </React.Fragment>
           )
         })}
       </div>
+      </TooltipProvider>
     </div>
   )
 }
@@ -1064,33 +1122,41 @@ const TeamLogoStrip = ({ teamsInGames }: { teamsInGames: Set<string> }) => {
     el?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
+  const reducedMotion = useReducedMotion()
+  const hoverScale = reducedMotion ? 1 : 1.12
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-gray-700 bg-[#151515] p-2">
+    <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-card p-2">
       {MLB_TEAM_ABBREVS.map((abbr) => {
         const inSlate = teamsInGames.has(abbr)
         const bgColor = getTeamLogoColor(toColorKey(abbr))
         return (
-          <button
+          <motion.button
             key={abbr}
             type="button"
             onClick={() => scrollToTeam(abbr)}
             title={abbr}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/15 transition-opacity",
-              inSlate
-                ? "opacity-100 hover:opacity-90"
-                : "opacity-50 hover:opacity-70"
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:shadow-[0_0_10px_hsl(var(--primary)/0.4)]",
+              inSlate ? "opacity-100 hover:opacity-90" : "opacity-50 hover:opacity-70"
             )}
             style={{ backgroundColor: bgColor }}
+            whileHover={{
+              scale: hoverScale,
+              rotate: reducedMotion ? 0 : [0, 2, -2, 0],
+              transition: { duration: reducedMotion ? 0 : 0.25 },
+            }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
           >
             <Image
               src={`/Images/MLB_Logos/${abbr}.png`}
               alt={abbr}
               width={24}
               height={24}
-              className="h-5 w-5 object-contain"
+              className="h-5 w-5 object-contain pointer-events-none"
             />
-          </button>
+          </motion.button>
         )
       })}
     </div>
@@ -1112,17 +1178,6 @@ const LineupsTab = ({
   error: string | null
   payloadLoading: boolean
 }) => {
-  const teamsInGames = React.useMemo(() => {
-    const set = new Set<string>()
-    games.forEach((game) => {
-      const away = toLogoAbbr(game.awayTeam?.teamAbv)
-      const home = toLogoAbbr(game.homeTeam?.teamAbv)
-      if (away) set.add(away)
-      if (home) set.add(home)
-    })
-    return set
-  }, [games])
-
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading matchups...</div>
   }
@@ -1132,7 +1187,6 @@ const LineupsTab = ({
 
   return (
     <div className="space-y-6">
-      <TeamLogoStrip teamsInGames={teamsInGames} />
       {games.map((game) => {
         const gameDate = game.gameDate ?? ""
         const awayKey = game.awayTeam?.teamAbv ? `${game.awayTeam.teamAbv}-${gameDate}` : ""
@@ -1143,16 +1197,16 @@ const LineupsTab = ({
 
         return (
           <div key={game.gameId} className="space-y-3">
-            <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
+            <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
               <CardContent className="p-4">
                 <div className="flex flex-col items-center justify-center gap-1 text-center">
                   <div className="flex items-center gap-3">
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-md border border-white/15"
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border"
                       style={{
                         backgroundColor: game.awayTeam?.teamAbv
                           ? getTeamLogoColor(game.awayTeam.teamAbv)
-                          : "#1f2937",
+                          : "hsl(var(--muted))",
                       }}
                     >
                       {game.awayTeam?.teamLogo ? (
@@ -1164,20 +1218,20 @@ const LineupsTab = ({
                           className="h-5 w-5 object-contain"
                         />
                       ) : (
-                        <span className="text-[10px] font-semibold text-white/70">
+                        <span className="text-[10px] font-semibold text-muted-foreground">
                           {game.awayTeam?.teamAbv ?? "-"}
                         </span>
                       )}
                     </span>
-                    <span className="text-sm font-semibold text-white/90">
+                    <span className="text-sm font-semibold text-foreground">
                       {label}
                     </span>
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-md border border-white/15"
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border"
                       style={{
                         backgroundColor: game.homeTeam?.teamAbv
                           ? getTeamLogoColor(game.homeTeam.teamAbv)
-                          : "#1f2937",
+                          : "hsl(var(--muted))",
                       }}
                     >
                       {game.homeTeam?.teamLogo ? (
@@ -1189,7 +1243,7 @@ const LineupsTab = ({
                           className="h-5 w-5 object-contain"
                         />
                       ) : (
-                        <span className="text-[10px] font-semibold text-white/70">
+                        <span className="text-[10px] font-semibold text-muted-foreground">
                           {game.homeTeam?.teamAbv ?? "-"}
                         </span>
                       )}
@@ -1203,39 +1257,48 @@ const LineupsTab = ({
               </CardContent>
             </Card>
 
-            <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
-              <CardContent className="p-4 space-y-6">
-                <div
-                  id={
-                    toLogoAbbr(game.awayTeam?.teamAbv) != null
-                      ? `${TEAM_SCROLL_ID_PREFIX}${toLogoAbbr(game.awayTeam?.teamAbv)}`
-                      : undefined
-                  }
-                  className="scroll-mt-24"
-                >
-                  <TeamMatchupCard
-                    payload={awayPayload}
-                    label={game.awayTeam?.teamAbv ?? "Away"}
-                    weightMode={weightMode}
-                  />
-                </div>
-                <div className="border-t-2 border-b border-gray-800/60" />
-                <div
-                  id={
-                    toLogoAbbr(game.homeTeam?.teamAbv) != null
-                      ? `${TEAM_SCROLL_ID_PREFIX}${toLogoAbbr(game.homeTeam?.teamAbv)}`
-                      : undefined
-                  }
-                  className="scroll-mt-24"
-                >
-                  <TeamMatchupCard
-                    payload={homePayload}
-                    label={game.homeTeam?.teamAbv ?? "Home"}
-                    weightMode={weightMode}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex gap-4">
+              <div className="w-2/3 min-w-0">
+                <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
+                  <CardContent className="p-4 space-y-6">
+                    <div
+                      id={
+                        toLogoAbbr(game.awayTeam?.teamAbv) != null
+                          ? `${TEAM_SCROLL_ID_PREFIX}${toLogoAbbr(game.awayTeam?.teamAbv)}`
+                          : undefined
+                      }
+                      className="scroll-mt-24"
+                    >
+                      <TeamMatchupCard
+                        payload={awayPayload}
+                        label={game.awayTeam?.teamAbv ?? "Away"}
+                        weightMode={weightMode}
+                      />
+                    </div>
+                    <div className="border-t-2 border-b border-border" />
+                    <div
+                      id={
+                        toLogoAbbr(game.homeTeam?.teamAbv) != null
+                          ? `${TEAM_SCROLL_ID_PREFIX}${toLogoAbbr(game.homeTeam?.teamAbv)}`
+                          : undefined
+                      }
+                      className="scroll-mt-24"
+                    >
+                      <TeamMatchupCard
+                        payload={homePayload}
+                        label={game.homeTeam?.teamAbv ?? "Home"}
+                        weightMode={weightMode}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="w-1/3 min-w-0">
+                <Card className="rounded-md border border-border bg-card surface-glass h-full min-h-[200px]">
+                  <CardContent className="p-4 h-full" />
+                </Card>
+              </div>
+            </div>
           </div>
         )
       })}
@@ -1245,7 +1308,7 @@ const LineupsTab = ({
           Loading matchup payloads...
         </div>
       )}
-      <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
+      <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
         <CardContent className="p-4">
           <div className="text-xs font-semibold uppercase text-muted-foreground">
             Pitch Legend
@@ -1254,13 +1317,13 @@ const LineupsTab = ({
             {PITCH_LABELS.map((entry) => (
               <div
                 key={entry.raw}
-                className="flex items-center justify-between rounded-md border border-gray-700/60 bg-[#151515] px-3 py-2 text-xs text-white/80"
+                className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground/80"
               >
                 <span className="font-semibold">{entry.raw}</span>
-                <span className="text-white/50">→</span>
+                <span className="text-muted-foreground">→</span>
                 <span className="font-semibold">{entry.label}</span>
-                <span className="text-white/50">•</span>
-                <span className="text-white/70">{entry.name}</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-muted-foreground">{entry.name}</span>
               </div>
             ))}
           </div>
@@ -1276,7 +1339,7 @@ const PITCHER_FILTER_OPTIONS: { value: PitcherFilter; label: string }[] = [
   { value: "relievers", label: "Relievers" },
 ]
 
-const TOP_N_PITCHES = 3
+const H2H_PITCH_SLOTS = 5
 /** Cap rendered rows so the Batter tab doesn't freeze with 1000s of DOM nodes */
 const MAX_BATTER_TAB_ROWS = 500
 
@@ -1315,9 +1378,9 @@ const BatterTab = ({
 
   return (
     <div className="space-y-4">
-      <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
-        <CardContent className="p-4">
-          <div className="text-xs font-semibold uppercase text-muted-foreground mb-3">
+      <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
+        <CardContent className="p-4 flex flex-col min-h-0">
+          <div className="flex-shrink-0 text-xs font-semibold uppercase text-muted-foreground mb-3">
             All batters vs pitchers · sorted by OVR (desc) · click row for full pitches
             {isCapped && (
               <span className="block mt-1 font-normal normal-case text-muted-foreground">
@@ -1326,42 +1389,46 @@ const BatterTab = ({
             )}
           </div>
           <TooltipProvider delayDuration={300}>
-          <div className="overflow-x-auto rounded-md border border-gray-700/60">
+          <div className="flex-1 min-h-0 overflow-auto rounded-md overflow-hidden card-glass">
             <table className="w-full min-w-[720px] border-collapse text-sm">
-              <thead className="border-b border-gray-700/70 bg-[#151515]">
-                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2">#</th>
-                  <th className="px-2 py-2">Batter</th>
-                  <th className="px-2 py-2">Stance</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #1</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #2</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #3</th>
-                  <th className="px-2 py-2 text-center">vs</th>
-                  <th className="px-2 py-2">Pitcher</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #1</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #2</th>
-                  <th className="px-1.5 py-2 text-center">Pitch #3</th>
-                  <th className="px-2 py-2 text-center">OVR</th>
+              <thead className="table-header-sticky">
+                <tr className="text-left text-xs uppercase tracking-tighter text-foreground bg-muted/80 border-b border-border">
+                  <th className="px-2 py-2.5 bg-muted/80">#</th>
+                  <th className="px-2 py-2.5 bg-muted/80 font-semibold">Batter</th>
+                  <th className="px-2 py-2.5 bg-muted/80 font-semibold">Stance</th>
+                  {Array.from({ length: H2H_PITCH_SLOTS }, (_, i) => (
+                    <th key={`b-${i}`} className="px-1.5 py-2.5 text-center bg-muted/80 font-semibold">
+                      Pitch {i + 1}
+                    </th>
+                  ))}
+                  <th className="px-2 py-2.5 text-center bg-muted/80">vs</th>
+                  <th className="px-2 py-2.5 bg-muted/80 font-semibold">Pitcher</th>
+                  {Array.from({ length: H2H_PITCH_SLOTS }, (_, i) => (
+                    <th key={`p-${i}`} className="px-1.5 py-2.5 text-center bg-muted/80 font-semibold">
+                      Pitch {i + 1}
+                    </th>
+                  ))}
+                  <th className="px-2 py-2.5 text-center bg-muted/80 border-l border-border/70 font-semibold">OVR</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleRows.map((row, idx) => {
-                  const top3 = row.pitchOrder.slice(0, TOP_N_PITCHES)
+                  const pitchSlotsRow = row.pitchOrder.slice(0, H2H_PITCH_SLOTS)
                   return (
                     <tr
                       key={`${row.batterId}-${row.pitcherId}-${row.stand}`}
-                      className="border-b border-gray-800/60 cursor-pointer hover:bg-white/5 transition-colors"
+                      className="border-b border-border/50 cursor-pointer table-row-hover h-9 align-middle"
                       onClick={() => setDetailRow(row)}
                     >
-                      <td className="px-2 py-2 text-muted-foreground">{idx + 1}</td>
-                      <td className="px-2 py-2">
-                        <div className="flex items-center gap-2">
+                      <td className="px-2 py-1.5 text-xs text-muted-foreground tabular-nums align-middle">{idx + 1}</td>
+                      <td className="px-2 py-1.5 align-middle">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span
-                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/15 overflow-hidden"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border overflow-hidden"
                             style={{
                               backgroundColor: row.batterTeam
                                 ? getTeamLogoColor(toColorKey(toLogoAbbr(row.batterTeam) ?? ""))
-                                : "#1f2937",
+                                : "hsl(var(--muted))",
                             }}
                             title={row.batterTeam ?? undefined}
                           >
@@ -1369,12 +1436,12 @@ const BatterTab = ({
                               <Image
                                 src={`/Images/MLB_Logos/${toLogoAbbr(row.batterTeam)}.png`}
                                 alt={row.batterTeam}
-                                width={20}
-                                height={20}
-                                className="h-5 w-5 object-contain"
+                                width={18}
+                                height={18}
+                                className="h-4 w-4 object-contain"
                               />
                             ) : (
-                              <span className="text-[10px] font-semibold text-white/70">
+                              <span className="text-[10px] font-semibold text-muted-foreground">
                                 {row.batterTeam ?? "-"}
                               </span>
                             )}
@@ -1383,26 +1450,31 @@ const BatterTab = ({
                             <Image
                               src={row.batterHeadshot}
                               alt={row.batterName}
-                              width={28}
-                              height={28}
-                              className="h-7 w-7 rounded-full object-cover shrink-0"
+                              width={24}
+                              height={24}
+                              className="h-6 w-6 rounded-full object-cover shrink-0"
                               unoptimized
                             />
                           ) : (
-                            <div className="h-7 w-7 rounded-full bg-muted/40 shrink-0" />
+                            <div className="h-6 w-6 rounded-full bg-muted/40 shrink-0" />
                           )}
-                          <span className="font-medium text-white/90 truncate max-w-[120px]">
+                          <span className="font-medium text-xs text-foreground whitespace-nowrap truncate min-w-0 max-w-[100px]">
                             {row.batterName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-white/70">{row.stand}HB</td>
-                      {[0, 1, 2].map((i) => {
-                        const pt = top3[i]
-                        const rating = pt != null ? row.pitchRatings[pt] : null
-                        const label = pt != null ? getPitchLabel(pt) : ""
+                      <td className="px-2 py-1.5 text-xs text-muted-foreground align-middle">{row.stand}\u00A0HB</td>
+                      {Array.from({ length: H2H_PITCH_SLOTS }, (_, i) => {
+                        const pt = pitchSlotsRow[i] ?? ""
+                        const rating = pt ? row.pitchRatings[pt] : null
+                        const fullName = pt ? getPitchFullName(pt) : ""
+                        const label = pt ? getPitchLabel(pt) : ""
                         return (
-                          <td key={i} className="px-1.5 py-2 text-center">
+                          <td
+                            key={i}
+                            className="px-1.5 py-2 text-center align-middle"
+                            style={getCellBackgroundStyle(rating, "percent")}
+                          >
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span
@@ -1415,21 +1487,21 @@ const BatterTab = ({
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent>
-                                {label ? `${label} rating: ${rating != null ? `${rating.toFixed(0)}%` : "—"}` : "—"}
+                                {fullName ? `${fullName}: ${rating != null ? `${rating.toFixed(0)}%` : "—"}` : label ? `${label}: —` : "—"}
                               </TooltipContent>
                             </Tooltip>
                           </td>
                         )
                       })}
-                      <td className="px-2 py-2 text-center text-muted-foreground">vs</td>
+                      <td className="px-2 py-2 text-center text-muted-foreground align-middle">vs</td>
                       <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/15 overflow-hidden"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border overflow-hidden"
                             style={{
                               backgroundColor: row.pitcherTeam
                                 ? getTeamLogoColor(toColorKey(toLogoAbbr(row.pitcherTeam) ?? ""))
-                                : "#1f2937",
+                                : "hsl(var(--muted))",
                             }}
                             title={row.pitcherTeam ?? undefined}
                           >
@@ -1442,7 +1514,7 @@ const BatterTab = ({
                                 className="h-5 w-5 object-contain"
                               />
                             ) : (
-                              <span className="text-[10px] font-semibold text-white/70">
+                              <span className="text-[10px] font-semibold text-muted-foreground">
                                 {row.pitcherTeam ?? "-"}
                               </span>
                             )}
@@ -1451,42 +1523,46 @@ const BatterTab = ({
                             <Image
                               src={row.pitcherHeadshot}
                               alt={row.pitcherName}
-                              width={28}
-                              height={28}
-                              className="h-7 w-7 rounded-full object-cover shrink-0"
+                              width={24}
+                              height={24}
+                              className="h-6 w-6 rounded-full object-cover shrink-0"
                               unoptimized
                             />
                           ) : (
-                            <div className="h-7 w-7 rounded-full bg-muted/40 shrink-0" />
+                            <div className="h-6 w-6 rounded-full bg-muted/40 shrink-0" />
                           )}
-                          <span className="font-medium text-white/90 truncate max-w-[120px]">
+                          <span className="font-medium text-xs text-foreground whitespace-nowrap truncate min-w-0 max-w-[100px]">
                             {row.pitcherName}
                           </span>
                         </div>
                       </td>
-                      {[0, 1, 2].map((i) => {
-                        const pt = top3[i]
-                        const usage = pt != null ? row.pitchUsage[pt] : null
-                        const rating = pt != null ? row.pitchRatings[pt] : null
+                      {Array.from({ length: H2H_PITCH_SLOTS }, (_, i) => {
+                        const pt = pitchSlotsRow[i] ?? ""
+                        const usage = pt ? row.pitchUsage[pt] : null
+                        const rating = pt ? row.pitchRatings[pt] : null
                         const usageStr = usage != null ? `${(usage * 100).toFixed(0)}%` : "-"
                         const ratingStr = rating != null ? `${rating.toFixed(0)}%` : "-"
-                        const label = pt != null ? getPitchLabel(pt) : ""
+                        const label = pt ? getPitchLabel(pt) : ""
+                        const fullName = pt ? getPitchFullName(pt) : ""
                         return (
-                          <td key={i} className="px-1.5 py-2 text-center">
+                          <td
+                            key={i}
+                            className="px-1.5 py-2 text-center align-middle"
+                            style={getCellBackgroundStyle(rating, "percent")}
+                          >
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span
                                   className={cn(
-                                    "text-xs cursor-default",
-                                    "inline-flex items-baseline gap-1"
+                                    "text-xs cursor-default inline-flex items-baseline gap-1"
                                   )}
                                 >
                                   {label ? (
                                     <>
-                                      <span className="font-medium text-white/80">{label}</span>
+                                      <span className="text-muted-foreground">{label}</span>
                                       <span className={getUsageValueClass(usage)}>{usageStr}</span>
                                       <span className="text-muted-foreground">/</span>
-                                      <span className={cn("font-medium", getPitchValueClass(rating))}>
+                                      <span className={getPitchValueClass(rating)}>
                                         {ratingStr}
                                       </span>
                                     </>
@@ -1494,7 +1570,7 @@ const BatterTab = ({
                                     <>
                                       <span className={getUsageValueClass(usage)}>{usageStr}</span>
                                       <span className="text-muted-foreground">/</span>
-                                      <span className={cn("font-medium", getPitchValueClass(rating))}>
+                                      <span className={getPitchValueClass(rating)}>
                                         {ratingStr}
                                       </span>
                                     </>
@@ -1502,14 +1578,17 @@ const BatterTab = ({
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent>
-                                {label ? `${label}: Usage ${usageStr} · Rating ${ratingStr}` : "—"}
+                                {fullName ? `${fullName}: Usage ${usageStr} · Rating ${ratingStr}` : label ? `${label}: —` : "—"}
                               </TooltipContent>
                             </Tooltip>
                           </td>
                         )
                       })}
-                      <td className="px-2 py-2 text-center">
-                        <span className={cn("font-semibold", getOvrValueClass(row.overallScore))}>
+                      <td
+                        className="px-2 py-1.5 text-center border-l border-border/50 align-middle"
+                        style={getCellBackgroundStyle(row.overallScore, "percent")}
+                      >
+                        <span className={getOvrValueClass(row.overallScore)}>
                           {row.overallScore != null
                             ? `${row.overallScore.toFixed(0)}%`
                             : "-"}
@@ -1532,11 +1611,7 @@ const BatterTab = ({
 
       <Dialog open={!!detailRow} onOpenChange={(open) => !open && setDetailRow(null)}>
         <DialogContent
-          className="max-w-lg border-0 p-0 gap-0 overflow-hidden text-card-foreground bg-[#171717] border border-gray-700 shadow-xl"
-          style={{
-            ...PITCH_MATRIX_CARD_STYLE,
-            backgroundColor: "#171717",
-          }}
+          className="max-w-lg border border-border p-0 gap-0 overflow-hidden text-card-foreground bg-card surface-glass"
         >
           {detailRow && (
             <>
@@ -1552,11 +1627,11 @@ const BatterTab = ({
               <div className="flex items-center gap-3 min-w-0 flex-wrap">
                 {/* Batter: logo + headshot + name */}
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded overflow-hidden"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded overflow-hidden border border-border"
                   style={{
                     backgroundColor: detailRow.batterTeam
                       ? getTeamLogoColor(toColorKey(toLogoAbbr(detailRow.batterTeam) ?? ""))
-                      : "#1f2937",
+                      : "hsl(var(--muted))",
                   }}
                 >
                   {detailRow.batterTeam && toLogoAbbr(detailRow.batterTeam) ? (
@@ -1568,7 +1643,7 @@ const BatterTab = ({
                       className="h-4 w-4 object-contain"
                     />
                   ) : (
-                    <span className="text-[9px] font-semibold text-white/70">{detailRow.batterTeam ?? "-"}</span>
+                    <span className="text-[9px] font-semibold text-muted-foreground">{detailRow.batterTeam ?? "-"}</span>
                   )}
                 </span>
                 {detailRow.batterHeadshot ? (
@@ -1584,7 +1659,7 @@ const BatterTab = ({
                   <div className="h-8 w-8 rounded-full bg-muted/40 shrink-0" />
                 )}
                 <div className="min-w-0">
-                  <span className="font-semibold text-white/95 text-sm truncate block">{detailRow.batterName}</span>
+                  <span className="font-semibold text-foreground text-sm truncate block">{detailRow.batterName}</span>
                   <span className="text-[11px] text-muted-foreground">{detailRow.stand}HB</span>
                 </div>
 
@@ -1604,14 +1679,14 @@ const BatterTab = ({
                   <div className="h-8 w-8 rounded-full bg-muted/40 shrink-0" />
                 )}
                 <div className="min-w-0">
-                  <span className="font-semibold text-white/95 text-sm truncate block">{detailRow.pitcherName}</span>
+                  <span className="font-semibold text-foreground text-sm truncate block">{detailRow.pitcherName}</span>
                 </div>
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded overflow-hidden"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded overflow-hidden border border-border"
                   style={{
                     backgroundColor: detailRow.pitcherTeam
                       ? getTeamLogoColor(toColorKey(toLogoAbbr(detailRow.pitcherTeam) ?? ""))
-                      : "#1f2937",
+                      : "hsl(var(--muted))",
                   }}
                 >
                   {detailRow.pitcherTeam && toLogoAbbr(detailRow.pitcherTeam) ? (
@@ -1623,7 +1698,7 @@ const BatterTab = ({
                       className="h-4 w-4 object-contain"
                     />
                   ) : (
-                    <span className="text-[9px] font-semibold text-white/70">{detailRow.pitcherTeam ?? "-"}</span>
+                    <span className="text-[9px] font-semibold text-muted-foreground">{detailRow.pitcherTeam ?? "-"}</span>
                   )}
                 </span>
               </div>
@@ -1633,55 +1708,64 @@ const BatterTab = ({
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
                   All pitches
                 </div>
-                <div className="rounded-lg border border-gray-700/60 overflow-hidden bg-[#0d0d0d]/40">
+                <div className="rounded-md overflow-hidden card-glass">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-700/70 bg-[#151515]/90">
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <tr className="border-b border-border/70 bg-card/95">
+                        <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-tighter text-muted-foreground">
                           Pitch
                         </th>
-                        <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">
+                        <th className="px-3 py-2.5 text-center text-xs font-medium uppercase tracking-tighter text-muted-foreground w-20">
                           Usage
                         </th>
-                        <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">
+                        <th className="px-3 py-2.5 text-center text-xs font-medium uppercase tracking-tighter text-muted-foreground w-24">
                           Pitch rating
                         </th>
-                        <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">
+                        <th className="px-3 py-2.5 text-center text-xs font-medium uppercase tracking-tighter text-muted-foreground w-24">
                           Batter rating
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {detailRow.pitchOrder.map((pt, idx) => {
+                      {detailRow.pitchOrder.filter((pt) => pt.length > 0).map((pt, idx) => {
                         const usage = detailRow.pitchUsage[pt]
                         const rating = detailRow.pitchRatings[pt]
                         return (
                           <tr
                             key={pt}
                             className={cn(
-                              "border-b border-gray-800/50 transition-colors",
-                              idx % 2 === 0 ? "bg-[#151515]/30" : "bg-[#151515]/50"
+                              "border-b border-border/50",
+                              idx % 2 === 0 ? "bg-muted/15" : "bg-muted/25"
                             )}
                           >
                             <td className="px-3 py-2.5">
                               <span
-                                className="inline-flex rounded-md border border-gray-600/50 bg-white/5 px-2 py-0.5 font-medium text-white/90"
+                                className="inline-flex rounded-md border border-border bg-muted/50 px-2 py-0.5 font-medium text-foreground"
                                 title={getPitchFullName(pt)}
                               >
                                 {getPitchLabel(pt)}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 text-center">
+                            <td
+                              className="px-3 py-2.5 text-center"
+                              style={getCellBackgroundStyle(usage, "usage")}
+                            >
                               <span className={cn("font-medium tabular-nums", getUsageValueClass(usage))}>
                                 {usage != null ? `${(usage * 100).toFixed(0)}%` : "—"}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 text-center">
+                            <td
+                              className="px-3 py-2.5 text-center"
+                              style={getCellBackgroundStyle(rating, "percent")}
+                            >
                               <span className={cn("font-medium tabular-nums", getPitchValueClass(rating))}>
                                 {rating != null ? `${rating.toFixed(0)}%` : "—"}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 text-center">
+                            <td
+                              className="px-3 py-2.5 text-center"
+                              style={getCellBackgroundStyle(rating, "percent")}
+                            >
                               <span className={cn("font-medium tabular-nums", getPitchValueClass(rating))}>
                                 {rating != null ? `${rating.toFixed(0)}%` : "—"}
                               </span>
@@ -1696,7 +1780,7 @@ const BatterTab = ({
 
               {/* OVR footer */}
               <div className="pb-0 pt-2">
-                <div className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-[#151515]/60 px-4 py-3">
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Matchup OVR
                   </span>
@@ -1737,39 +1821,55 @@ export default function PitchMatrixClient() {
     [payloads, weightMode, pitcherFilter]
   )
 
+  /** Teams in today's games (for Matchups tab team logo strip) */
+  const teamsInGames = React.useMemo(() => {
+    const set = new Set<string>()
+    games.forEach((game) => {
+      const away = toLogoAbbr(game.awayTeam?.teamAbv)
+      const home = toLogoAbbr(game.homeTeam?.teamAbv)
+      if (away) set.add(away)
+      if (home) set.add(home)
+    })
+    return set
+  }, [games])
+
   return (
-    <div className="space-y-6">
-      <div className="sticky top-14 z-30">
-        <div className="rounded-lg border border-gray-800 bg-[#141414]/90 px-3 py-2 shadow-md backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+    <>
+      {/* Sticky MLB controls bar: sticks to top of page wrapper (flush under app header) */}
+      <div
+        className="sticky top-0 z-40 w-full flex-shrink-0 border-b border-border bg-card surface-glass"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
             {TAB_ITEMS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "rounded-md px-4 py-2 text-sm font-semibold transition-none",
+                  "rounded-md px-4 py-2 text-sm font-semibold transition-colors interactive-surface",
                   activeTab === tab
-                    ? "bg-muted text-white"
-                    : "text-muted-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {tab}
               </button>
             ))}
           </div>
-            {activeTab === "Matchups" ? (
+          {activeTab === "Matchups" ? (
+            <>
+              <TeamLogoStrip teamsInGames={teamsInGames} />
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase text-muted-foreground">
                   OVR Mode
                 </span>
-                <div className="flex items-center rounded-md border border-gray-700/60 bg-[#151515] p-1">
+                <div className="flex items-center rounded-md border border-border bg-muted/50 p-1">
                   <button
                     className={cn(
-                      "px-3 py-1 text-xs font-semibold rounded-md transition-none",
+                      "px-3 py-1 text-xs font-semibold rounded-md transition-colors",
                       weightMode === "avg"
-                        ? "bg-muted text-white"
-                        : "text-muted-foreground"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => setWeightMode("avg")}
                   >
@@ -1777,10 +1877,10 @@ export default function PitchMatrixClient() {
                   </button>
                   <button
                     className={cn(
-                      "px-3 py-1 text-xs font-semibold rounded-md transition-none",
+                      "px-3 py-1 text-xs font-semibold rounded-md transition-colors",
                       weightMode === "hr"
-                        ? "bg-muted text-white"
-                        : "text-muted-foreground"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => setWeightMode("hr")}
                   >
@@ -1788,81 +1888,86 @@ export default function PitchMatrixClient() {
                   </button>
                 </div>
               </div>
-            ) : null}
-            {activeTab === "Batter" ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Pitcher
-                </span>
-                <div className="flex items-center rounded-md border border-gray-700/60 bg-[#151515] p-1">
-                  {PITCHER_FILTER_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setPitcherFilter(opt.value)}
-                      className={cn(
-                        "px-3 py-1 text-xs font-semibold rounded-md transition-none",
-                        pitcherFilter === opt.value
-                          ? "bg-muted text-white"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {payloadLoading && (
-                  <span className="text-xs text-muted-foreground">Loading…</span>
-                )}
+            </>
+          ) : null}
+          {activeTab === "Batter" ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Pitcher
+              </span>
+              <div className="flex items-center rounded-md border border-border bg-muted/50 p-1">
+                {PITCHER_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPitcherFilter(opt.value)}
+                    className={cn(
+                      "px-3 py-1 text-xs font-semibold rounded-md transition-colors",
+                      pitcherFilter === opt.value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-            ) : null}
-          </div>
+              {payloadLoading && (
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {activeTab === "Matchups" && (
-        <LineupsTab
-          weightMode={weightMode}
-          games={games}
-          payloads={payloads}
-          loading={loading}
-          error={error}
-          payloadLoading={payloadLoading}
-        />
-      )}
-      {/* Mount Batter tab as soon as we have games so it loads in background; hide until selected */}
-      {games.length > 0 && (
-        <div
-          style={{ display: activeTab === "Batter" ? "block" : "none" }}
-          aria-hidden={activeTab !== "Batter"}
-        >
-          <BatterTab
-            games={games}
-            payloads={payloads}
-            loading={loading}
-            error={error}
-            payloadLoading={payloadLoading}
-            weightMode={weightMode}
-            pitcherFilter={pitcherFilter}
-            setPitcherFilter={setPitcherFilter}
-            rows={batterListRows}
-          />
+      {/* Scroll region: only this area scrolls; tables/cards do not set height */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <div className="space-y-6 p-4">
+          {activeTab === "Matchups" && (
+            <LineupsTab
+              weightMode={weightMode}
+              games={games}
+              payloads={payloads}
+              loading={loading}
+              error={error}
+              payloadLoading={payloadLoading}
+            />
+          )}
+          {games.length > 0 && (
+            <div
+              style={{ display: activeTab === "Batter" ? "block" : "none" }}
+              aria-hidden={activeTab !== "Batter"}
+              className={activeTab === "Batter" ? "space-y-6" : undefined}
+            >
+              <BatterTab
+                games={games}
+                payloads={payloads}
+                loading={loading}
+                error={error}
+                payloadLoading={payloadLoading}
+                weightMode={weightMode}
+                pitcherFilter={pitcherFilter}
+                setPitcherFilter={setPitcherFilter}
+                rows={batterListRows}
+              />
+            </div>
+          )}
+          {activeTab === "Pitcher" && (
+            <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                Pitcher tab layout placeholder — will connect to pitcher payloads next.
+              </CardContent>
+            </Card>
+          )}
+          {activeTab === "H2H" && (
+            <Card className="rounded-md border border-border bg-card surface-glass card-hover-glow">
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                H2H tab layout placeholder — matchup history view coming next.
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
-      {activeTab === "Pitcher" && (
-        <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            Pitcher tab layout placeholder — will connect to pitcher payloads next.
-          </CardContent>
-        </Card>
-      )}
-      {activeTab === "H2H" && (
-        <Card className="border" style={PITCH_MATRIX_CARD_STYLE}>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            H2H tab layout placeholder — matchup history view coming next.
-          </CardContent>
-        </Card>
-      )}
-    </div>
+      </div>
+    </>
   )
 }
 

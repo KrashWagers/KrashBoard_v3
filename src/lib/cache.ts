@@ -95,7 +95,7 @@ export const CACHE_KEYS = {
   NHL_PLAYER_VS_OPP: 'nhl_player_vs_opp',
   NHL_TEAM_GAMELOGS: 'nhl_team_gamelogs',
   NHL_PLAYER_PAYLOAD: 'nhl_player_payload',
-  // Add other cache keys as needed
+  NBA_PROPS: 'nba_props',
 } as const
 
 // Cache TTL in minutes
