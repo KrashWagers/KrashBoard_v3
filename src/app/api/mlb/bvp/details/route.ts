@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
       : []
 
     const response: BvpDetailsResponse = {
-      matchup_gameID,
+      matchup_gameID: matchupGameID,
       batter,
       pitcher,
       summary,
