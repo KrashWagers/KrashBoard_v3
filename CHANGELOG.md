@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2025-10-27
 
+### Added - MLB Batter vs Pitcher (BvP) page and APIs
+- **APIs**: New BQ-backed endpoints for the BvP summary table and expandable plate appearance details.
+  - `GET /api/mlb/bvp/matchup?matchup_gameID=YYYYMMDD_AWAY@HOME` — returns summary rows from `batter_vs_pitcher.bvp_summary_v1` with optional filters: `starterOnly`, `relieversOnly`, `minPA`, `search` (batter/pitcher name), `sort` (ops|avg|hr|so|pa), `limit`, `offset`. Response includes boxscore-style stats (PA, AB, H, HR, BB, SO, AVG, OBP, SLG, OPS) and `is_vs_expected_starter` / `is_vs_relief_pitcher` as booleans.
+  - `GET /api/mlb/bvp/details?matchup_gameID=...&batter=...&pitcher=...` — returns one row from `batter_vs_pitcher.bvp_payload_v1` with `pa_details` array for accordion expansion.
+  - `GET /api/mlb/bvp/matchups` — returns list of recent `matchup_gameID` + date for the page selector.
+- **Caching**: In-memory cache keyed by `bvp:matchup:${id}:filters:${hash}` and `bvp:details:${id}:${batter}:${pitcher}`; TTL 24h (`CACHE_TTL_24H_SECONDS`). Team logos derived from batter_team/pitcher_team to `/Images/MLB_Logos/{ABBR}.png`.
+- **Frontend**: New page **Batter vs Pitcher** at `/mlb/batter-vs-pitcher`: matchup dropdown, filters (sort, min PA, search, starter/relievers only), table with vertical scroll (DataTableViewport), SP/RP badges; row click expands accordion and fetches details then shows each plate appearance (date, inning, count, result, description).
+- **Types**: `src/lib/mlb/bvp-types.ts` for BvpSummaryRow, BvpMatchupResponse, BvpDetailsResponse, BvpPaDetail, BvpMatchupsListResponse.
+- **Nav**: MLB sidebar main nav includes "Batter vs Pitcher"; Tools include "BvP Summary" (same page) and "Player vs Opp" (renamed from "Batter vs Pitcher" to avoid confusion).
+- **Files**: `src/app/api/mlb/bvp/matchup/route.ts`, `src/app/api/mlb/bvp/details/route.ts`, `src/app/api/mlb/bvp/matchups/route.ts`, `src/lib/mlb/bvp-types.ts`, `src/components/mlb/bvp/BvpPageClient.tsx`, `src/app/mlb/batter-vs-pitcher/page.tsx`, `src/components/app-sidebar.tsx`.
+
+### Changed - MLB Batter vs Pitcher: wider name columns, no page scroll
+- **Name columns**: Batter and Pitcher columns use `minmax(180px, 2fr)` so full names (e.g. Yoshinobu Yamamoto, Cristopher Sánchez) display without truncation.
+- **Layout**: BvP page no longer causes page-level scrolling. Main content area uses `overflow-hidden` and flex for `/mlb/batter-vs-pitcher`; MLB layout uses full-height flex for that route; BvpPageClient uses flex-1 and a scrollable table region so only the table body scrolls and the card fills the content area.
+- **Files**: `src/components/mlb/bvp/BvpPageClient.tsx`, `src/components/main-content-area.tsx`, `src/app/mlb/layout.tsx`.
+
+### Changed - MLB Batter vs Pitcher: real table with fixed column widths and horizontal scroll
+- **Table element**: Replaced div/grid layout with a real `<table>` and `table-layout: fixed` (table-fixed) for spreadsheet-style behavior.
+- **Column sizing**: Added `<colgroup>` with stable pixel widths: expand 28px, Batter 260px, Pitcher 240px, Type 64px, PA/AB/H/HR/BB/SO 56px each, AVG/OBP/SLG/OPS 72px each. Truncate + tooltip on Batter/Pitcher; right-aligned tabular-nums on stats.
+- **Scroll**: Table container uses `min-w-0` in the flex chain and `overflow-x-auto` so the table scrolls horizontally instead of compressing; vertical scroll unchanged.
+- **Shared config**: `src/lib/table-columns.ts` exports `BVP_TABLE_COLUMNS`, `BVP_TABLE_COL_COUNT`, `BVP_TABLE_MIN_WIDTH_PX`, and `tableColAlignClass()` for reuse by other tables. No per-page width tweaks; widths are stable.
+- **Files**: `src/lib/table-columns.ts`, `src/components/mlb/bvp/BvpPageClient.tsx`.
+
+### Changed - MLB Batter vs Pitcher: plate appearance data loaded in bulk, server-cached 24h
+- **Issue**: The per-row details API (`GET /api/mlb/bvp/details`) was returning 500 in some cases, and PA data was fetched on demand per row instead of once.
+- **Bulk PA API**: New `GET /api/mlb/bvp/pa-payload` loads all PA data for the current filters (matchup, starterOnly, relieversOnly, minPA, search) in one request from `bvp_payload_v1`, same 24h server-side cache as the summary. Response: `{ payloads: [{ matchup_gameID, batter, pitcher, pa_details }] }`.
+- **Frontend**: On page load (and when filters change), the client fetches summary and pa-payload in parallel. PA payload is stored in a map keyed by `matchup_gameID-batter-pitcher`. When a row is expanded, plate appearances are shown from that map (no extra network call). Expand shows all PAs where batter ID and pitcher ID match for that matchup.
+- **Files**: `src/app/api/mlb/bvp/pa-payload/route.ts`, `src/lib/mlb/bvp-types.ts` (BvpPaPayloadResponse), `src/components/mlb/bvp/BvpPageClient.tsx`.
+
+### Fixed - MLB Pitch Matrix: batter vs pitcher payload uses batter-only ratings
+- **Backend change**: BvP pitch-type payload no longer exposes averaged batter+pitcher percentiles as batter ratings. Removed `comb_*` fields; added per-pitch `b_*` (batter-only), `p_*` (pitcher-only), and optional `match_*` (matchup blend).
+- **Frontend**: `PitchMatrixClient` updated to use new payload. `BvpPitch` type now has `b_avg_pctile`, `b_hr_pctile`, `b_barrel_pctile`, `b_hh_pctile` (batter-only); optional `p_*` and `match_*` for future use. `computePitchScore()` uses only `b_*` so displayed ratings and OVR are batter-only (elite batters no longer show ~50% from averaging). Payload shape, joins, and filters unchanged.
+- **Pitch Rating row (Matchups tab)**: The row below Usage that shows one rating per pitch type now uses **pitcher-only** (`p_*`) via `computePitcherPitchScore()` so it reflects pitcher vulnerability and no longer depends on whichever batter’s `b_*` data was used for the slots (fixes missing ratings for e.g. Logan Webb vs RHB when `b_*` was null but `p_*` was present). OVR in that block uses `computePitcherOverallFromPitches()` for consistency.
+- **Files**: `src/components/mlb/pitch-matrix/PitchMatrixClient.tsx`.
+
+### Added - MLB Default Lineups API + Lineup cards
+- **Endpoint**: `GET /api/mlb/default-lineups` — returns default batting order (slots 1–9) for every team from BigQuery view `mlb26-485401.gold.Default_Lineups`.
+- **Lineup cards**: MLB Lineups page fetches default lineups and passes them by team into each matchup card; each lineup slot card shows slot number, player name, and position (e.g. "Mike Trout · CF"). Missing data shows "—". Uses same 24h-cached default lineups for all users.
+- **Response**: `{ updatedAt, teams: [{ team, depthFetchTsUtc, lineup: [{ slot, playerId, playerName, assignmentType, primarySlot, primarySlotStarts, totalStarts100, depthRank, positionGroup }] }] }`.
+- **Caching**: Server-side in-memory cache, shared by all users; TTL 24 hours (`CACHE_TTL_24H_SECONDS`). One BQ query per 24h.
+- **Files**: `src/app/api/mlb/default-lineups/route.ts`. Uses existing `queryMlbBigQuery` and `MLB_GCP_PROJECT_ID` / `MLB_GCP_KEY_FILE`.
+
+### Changed - MLB Lineups page (cards for each spot)
+- **Global Card styling**: Replaced `MlbCard` with global `Card` from `@/components/ui/card` so matchup and inner sections use visible card styling (`rounded-md border border-gray-700 bg-[#171717]`).
+- **Per-spot cards**: Each matchup now has (1) one outer card for the game (Away @ Home + time), (2) one card per team column (Away/Home) containing team logo, projected SP card, and lineup section, (3) one small card per lineup slot (9 cards per team), and (4) one card for the Weather section.
+- **Empty state**: No-games message uses the same global Card styling.
+- **Files**: `src/components/mlb/lineups/LineupsMatchupCard.tsx`, `src/app/mlb/lineups/page.tsx`.
+
 ### Changed - MLB Pitch Matrix: team logos moved to left vertical rail
 - **TeamLogoRail**: New vertical rail of MLB team logos on the left, flush against the main content (to the right of the app sidebar). Shown only on Matchups tab. Width 56px, full height of content area, border-right + bg-card, inner list overflow-y-auto if needed.
 - **Scroll-to-team**: Clicking a logo scrolls the main content scroll container (ref) to the team section via `scrollTo({ top, behavior: "smooth" })` with 16px offset. Selected team state shows persistent ring + slight scale.

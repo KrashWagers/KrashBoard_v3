@@ -1,7 +1,10 @@
 import * as React from "react"
 import Image from "next/image"
-import { MlbCard, MlbCardContent, MlbCardHeader } from "@/components/mlb/mlb-card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import mlbTeamColors from "@/data/mlb-team-colors.json"
+import type { DefaultLineupSlot } from "@/app/api/mlb/default-lineups/route"
+
+const cardClass = "rounded-md border border-gray-700 bg-[#171717] shadow-none"
 
 type TeamSide = {
   teamAbv: string
@@ -19,7 +22,7 @@ export type MlbLineupsGame = {
   awayTeam: TeamSide | null
 }
 
-const hitterSlots = Array.from({ length: 9 }, (_, index) => index + 1)
+const HITTER_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const
 
 type TeamColorEntry = {
   teamAbv: string
@@ -60,15 +63,46 @@ function StarterHeadshot({ name, url }: { name: string; url: string | null }) {
   )
 }
 
+function LineupSlotCard({
+  slot,
+  player,
+}: {
+  slot: number
+  player: DefaultLineupSlot | undefined
+}) {
+  const name = player?.playerName?.trim() ?? ""
+  const pos = player?.positionGroup?.trim() ?? ""
+  const label = pos ? `${name} · ${pos}` : name || "—"
+
+  return (
+    <Card className={cardClass}>
+      <CardContent className="flex h-9 items-center gap-2 px-3 py-2">
+        <span className="text-[11px] font-medium tabular-nums text-white/50">{slot}</span>
+        <span className="truncate text-sm text-white/90">{label}</span>
+      </CardContent>
+    </Card>
+  )
+}
+
 function TeamBlock({
   label,
   team,
+  lineupSlots,
 }: {
   label: string
   team: TeamSide | null
+  lineupSlots: DefaultLineupSlot[] | undefined
 }) {
   const teamName = team?.teamAbv ?? "TBD"
   const starterName = team?.expectedStarterName ?? "TBD"
+  const slotsByNumber = (() => {
+    if (!lineupSlots?.length) return null
+    const map = new Map<number, DefaultLineupSlot>()
+    for (const s of lineupSlots) {
+      map.set(s.slot, s)
+    }
+    return map
+  })()
 
   return (
     <div className="space-y-3">
@@ -95,21 +129,24 @@ function TeamBlock({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <StarterHeadshot name={starterName} url={team?.headshotUrl ?? null} />
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Projected SP</div>
-          <div className="text-sm font-medium text-white/85">{starterName}</div>
-        </div>
-      </div>
+      <Card className={cardClass}>
+        <CardContent className="flex items-center gap-2 p-3">
+          <StarterHeadshot name={starterName} url={team?.headshotUrl ?? null} />
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Projected SP</div>
+            <div className="text-sm font-medium text-white/85">{starterName}</div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Lineup</div>
-        <div className="grid grid-cols-1 gap-1">
-          {hitterSlots.map((slot) => (
-            <div
+        <div className="grid grid-cols-1 gap-1.5">
+          {HITTER_SLOTS.map((slot) => (
+            <LineupSlotCard
               key={`${teamName}-${slot}`}
-              className="h-6 rounded-[3px] border border-white/10 bg-white/5"
+              slot={slot}
+              player={slotsByNumber?.get(slot)}
             />
           ))}
         </div>
@@ -118,13 +155,21 @@ function TeamBlock({
   )
 }
 
-export function LineupsMatchupCard({ game }: { game: MlbLineupsGame }) {
+export function LineupsMatchupCard({
+  game,
+  defaultLineupsByTeam = {},
+}: {
+  game: MlbLineupsGame
+  defaultLineupsByTeam?: Record<string, DefaultLineupSlot[]>
+}) {
   const awayLabel = game.awayTeam?.teamAbv ?? "Away"
   const homeLabel = game.homeTeam?.teamAbv ?? "Home"
+  const awayAbbr = game.awayTeam?.teamAbv?.toUpperCase() ?? ""
+  const homeAbbr = game.homeTeam?.teamAbv?.toUpperCase() ?? ""
 
   return (
-    <MlbCard className="h-full">
-      <MlbCardHeader className="space-y-1.5 p-4 pb-3">
+    <Card className={`h-full ${cardClass}`}>
+      <CardHeader className="space-y-1.5 p-4 pb-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-white/90">
             {awayLabel} @ {homeLabel}
@@ -132,19 +177,29 @@ export function LineupsMatchupCard({ game }: { game: MlbLineupsGame }) {
           <div className="text-xs text-white/60">{game.gameTimeEst ?? "TBD"}</div>
         </div>
         <div className="h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
-      </MlbCardHeader>
+      </CardHeader>
 
-      <MlbCardContent className="space-y-4 px-4 pb-4 pt-0 text-white/80">
+      <CardContent className="space-y-4 px-4 pb-4 pt-0 text-white/80">
         <div className="grid gap-4 md:grid-cols-2">
-          <TeamBlock label="Away" team={game.awayTeam} />
-          <TeamBlock label="Home" team={game.homeTeam} />
+          <TeamBlock
+            label="Away"
+            team={game.awayTeam}
+            lineupSlots={defaultLineupsByTeam[awayAbbr]}
+          />
+          <TeamBlock
+            label="Home"
+            team={game.homeTeam}
+            lineupSlots={defaultLineupsByTeam[homeAbbr]}
+          />
         </div>
 
-        <div className="flex items-center justify-between rounded-[4px] border border-white/10 bg-white/5 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
-          <span>Weather</span>
-          <span className="text-white/45">—</span>
-        </div>
-      </MlbCardContent>
-    </MlbCard>
+        <Card className={cardClass}>
+          <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
+            <span>Weather</span>
+            <span className="text-white/45">—</span>
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
   )
 }

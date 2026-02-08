@@ -1,14 +1,20 @@
 import * as React from "react"
-import { MlbCard, MlbCardContent } from "@/components/mlb/mlb-card"
+import { Card, CardContent } from "@/components/ui/card"
 import { MlbPageShell } from "@/components/mlb/mlb-page-shell"
 import {
   LineupsMatchupCard,
   type MlbLineupsGame,
 } from "@/components/mlb/lineups/LineupsMatchupCard"
+import type { DefaultLineupSlot } from "@/app/api/mlb/default-lineups/route"
 
 type MlbLineupsResponse = {
   updatedAt: string
   games: MlbLineupsGame[]
+}
+
+type DefaultLineupsResponse = {
+  updatedAt: string
+  teams: { team: string; lineup: DefaultLineupSlot[] }[]
 }
 
 async function getLineupsData(): Promise<MlbLineupsResponse> {
@@ -24,8 +30,32 @@ async function getLineupsData(): Promise<MlbLineupsResponse> {
   return response.json()
 }
 
+async function getDefaultLineupsByTeam(): Promise<Record<string, DefaultLineupSlot[]>> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const response = await fetch(new URL("/api/mlb/default-lineups", baseUrl), {
+    next: { revalidate: 86400 },
+  })
+
+  if (!response.ok) {
+    return {}
+  }
+
+  const data: DefaultLineupsResponse = await response.json()
+  const byTeam: Record<string, DefaultLineupSlot[]> = {}
+  for (const t of data.teams ?? []) {
+    const abbr = t.team?.trim().toUpperCase()
+    if (abbr && Array.isArray(t.lineup)) {
+      byTeam[abbr] = t.lineup
+    }
+  }
+  return byTeam
+}
+
 export default async function MlbLineupsPage() {
-  const { updatedAt, games } = await getLineupsData()
+  const [{ updatedAt, games }, defaultLineupsByTeam] = await Promise.all([
+    getLineupsData(),
+    getDefaultLineupsByTeam(),
+  ])
   const grouped = games.reduce<Record<string, MlbLineupsGame[]>>((acc, game) => {
     const label = game.gameDateLabel ?? game.gameDate ?? "TBD"
     if (!acc[label]) acc[label] = []
@@ -42,11 +72,11 @@ export default async function MlbLineupsPage() {
     >
       <div className="space-y-8">
         {groupLabels.length === 0 ? (
-          <MlbCard>
-            <MlbCardContent className="px-4 py-6 text-sm text-white/70">
+          <Card className="rounded-md border border-gray-700 bg-[#171717] shadow-none">
+            <CardContent className="px-4 py-6 text-sm text-white/70">
               No upcoming MLB games available yet.
-            </MlbCardContent>
-          </MlbCard>
+            </CardContent>
+          </Card>
         ) : (
           groupLabels.map((label) => (
             <section key={label} className="space-y-3">
@@ -61,7 +91,11 @@ export default async function MlbLineupsPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {grouped[label].map((game) => (
-                  <LineupsMatchupCard key={game.gameId} game={game} />
+                  <LineupsMatchupCard
+                    key={game.gameId}
+                    game={game}
+                    defaultLineupsByTeam={defaultLineupsByTeam}
+                  />
                 ))}
               </div>
             </section>

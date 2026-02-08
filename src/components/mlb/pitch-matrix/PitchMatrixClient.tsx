@@ -43,10 +43,21 @@ type MlbLineupsResponse = {
 type BvpPitch = {
   pitch_type: string | null
   usage_pct: number | string | null
-  comb_avg_pctile: number | string | null
-  comb_hr_pctile: number | string | null
-  comb_barrel_pctile: number | string | null
-  comb_hh_pctile: number | string | null
+  /** Batter-only percentiles (no pitcher influence). */
+  b_avg_pctile: number | string | null
+  b_hr_pctile: number | string | null
+  b_barrel_pctile: number | string | null
+  b_hh_pctile: number | string | null
+  /** Pitcher-only (vulnerability). */
+  p_avg_pctile?: number | string | null
+  p_hr_pctile?: number | string | null
+  p_barrel_pctile?: number | string | null
+  p_hh_pctile?: number | string | null
+  /** Optional matchup blend (batter+pitcher avg); not used as batter rating. */
+  match_avg_pctile?: number | string | null
+  match_hr_pctile?: number | string | null
+  match_barrel_pctile?: number | string | null
+  match_hh_pctile?: number | string | null
 }
 
 type BvpPitcher = {
@@ -244,14 +255,30 @@ const WEIGHTS_BY_MODE: Record<WeightMode, [number, number, number, number]> = {
   hr: [2, 5, 4, 4],
 }
 
+/** Batter-only rating per pitch (uses b_* percentiles; no averaging with pitcher). */
 const computePitchScore = (
   pitch: BvpPitch,
   mode: WeightMode
 ): number | null => {
-  const avg = toNumber(pitch.comb_avg_pctile)
-  const hr = toNumber(pitch.comb_hr_pctile)
-  const barrel = toNumber(pitch.comb_barrel_pctile)
-  const hh = toNumber(pitch.comb_hh_pctile)
+  const avg = toNumber(pitch.b_avg_pctile)
+  const hr = toNumber(pitch.b_hr_pctile)
+  const barrel = toNumber(pitch.b_barrel_pctile)
+  const hh = toNumber(pitch.b_hh_pctile)
+  if (avg == null || hr == null || barrel == null || hh == null) return null
+  const [wAvg, wHr, wBarrel, wHh] = WEIGHTS_BY_MODE[mode]
+  const total = wAvg + wHr + wBarrel + wHh
+  return (avg * wAvg + hr * wHr + barrel * wBarrel + hh * wHh) / total
+}
+
+/** Pitcher-only vulnerability per pitch (uses p_* percentiles). Used for "Pitch Rating" row. */
+const computePitcherPitchScore = (
+  pitch: BvpPitch,
+  mode: WeightMode
+): number | null => {
+  const avg = toNumber(pitch.p_avg_pctile)
+  const hr = toNumber(pitch.p_hr_pctile)
+  const barrel = toNumber(pitch.p_barrel_pctile)
+  const hh = toNumber(pitch.p_hh_pctile)
   if (avg == null || hr == null || barrel == null || hh == null) return null
   const [wAvg, wHr, wBarrel, wHh] = WEIGHTS_BY_MODE[mode]
   const total = wAvg + wHr + wBarrel + wHh
@@ -265,6 +292,23 @@ const computeOverallFromPitches = (slots: PitchSlot[], mode: WeightMode) => {
   slots.forEach((slot) => {
     if (!slot) return
     const score = computePitchScore(slot, mode)
+    if (score == null) return
+    const usage = normalizeUsage(toNumber(slot.usage_pct)) ?? 0
+    totalWeighted += score * usage
+    totalUsage += usage
+  })
+
+  return totalUsage > 0 ? totalWeighted / totalUsage : null
+}
+
+/** Pitcher-only overall (weighted by usage). Used for OVR next to Usage / Pitch Rating. */
+const computePitcherOverallFromPitches = (slots: PitchSlot[], mode: WeightMode) => {
+  let totalWeighted = 0
+  let totalUsage = 0
+
+  slots.forEach((slot) => {
+    if (!slot) return
+    const score = computePitcherPitchScore(slot, mode)
     if (score == null) return
     const usage = normalizeUsage(toNumber(slot.usage_pct)) ?? 0
     totalWeighted += score * usage
@@ -635,7 +679,7 @@ const PitchMatrixTable = ({
     }
   }
 
-  const overallPitcherScore = computeOverallFromPitches(pitchSlots, weightMode)
+  const overallPitcherScore = computePitcherOverallFromPitches(pitchSlots, weightMode)
 
   const colgroup = (
     <colgroup>
@@ -686,7 +730,7 @@ const PitchMatrixTable = ({
                 return (
                   <td
                     key={slot?.pitch_type ? slot.pitch_type : `u-${i}`}
-                    className={cn("px-3 py-1.5 text-center", getUsageValueClass(usage))}
+                    className={cn("px-3 py-1.5 text-center text-xs tabular-nums", getUsageValueClass(usage))}
                     style={getCellBackgroundStyle(usage, "usage")}
                   >
                     {usage == null ? "-" : `${(usage * 100).toFixed(0)}%`}
@@ -708,11 +752,11 @@ const PitchMatrixTable = ({
               <td className="px-3 py-1.5 text-muted-foreground font-medium">Pitch Rating</td>
               <td className="px-3 py-1.5 text-muted-foreground"></td>
               {pitchSlots.map((slot, i) => {
-                const score = slot ? computePitchScore(slot, weightMode) : null
+                const score = slot ? computePitcherPitchScore(slot, weightMode) : null
                 return (
                   <td
                     key={slot?.pitch_type ? slot.pitch_type : `r-${i}`}
-                    className={cn("px-3 py-1.5 text-center", getPitchValueClass(score))}
+                    className={cn("px-3 py-1.5 text-center text-xs tabular-nums", getPitchValueClass(score))}
                     style={getCellBackgroundStyle(score, "percent")}
                   >
                     {score == null ? "-" : formatPercent(score)}
@@ -830,7 +874,7 @@ const PitchMatrixTable = ({
                   return (
                     <td
                       key={slot?.pitch_type ? pitchType : `cell-${i}`}
-                      className={cn("px-3 py-1.5 text-center align-middle", getPitchValueClass(score))}
+                      className={cn("px-3 py-1.5 text-center align-middle text-xs tabular-nums", getPitchValueClass(score))}
                       style={getCellBackgroundStyle(score, "percent")}
                     >
                       {score == null ? "-" : formatPercent(score)}
@@ -839,7 +883,7 @@ const PitchMatrixTable = ({
                 })}
                 <td
                   className={cn(
-                    "px-3 py-1.5 text-center border-l border-border/50 align-middle",
+                    "px-3 py-1.5 text-center border-l border-border/50 align-middle text-base font-semibold tabular-nums",
                     getOvrValueClass(row.overallScore)
                   )}
                   style={getCellBackgroundStyle(row.overallScore, "percent")}
@@ -979,7 +1023,7 @@ const BatterPitchTable = ({
                 return (
                   <td
                     key={slot?.pitch_type ? pitchType : `cell-${i}`}
-                    className={cn("px-3 py-1.5 text-center align-middle", getPitchValueClass(score))}
+                    className={cn("px-3 py-1.5 text-center align-middle text-xs tabular-nums", getPitchValueClass(score))}
                     style={getCellBackgroundStyle(score, "percent")}
                   >
                     {score == null ? "-" : formatPercent(score)}
@@ -987,7 +1031,7 @@ const BatterPitchTable = ({
                 )
               })}
               <td
-                className={cn("px-3 py-1.5 text-center border-l border-border/50 align-middle", getOvrValueClass(row.overallScore))}
+                className={cn("px-3 py-1.5 text-center border-l border-border/50 align-middle text-base font-semibold tabular-nums", getOvrValueClass(row.overallScore))}
                 style={getCellBackgroundStyle(row.overallScore, "percent")}
               >
                 {row.overallScore == null ? "-" : formatPercent(row.overallScore)}
@@ -1588,7 +1632,7 @@ const BatterTab = ({
                         className="px-2 py-1.5 text-center border-l border-border/50 align-middle"
                         style={getCellBackgroundStyle(row.overallScore, "percent")}
                       >
-                        <span className={getOvrValueClass(row.overallScore)}>
+                        <span className={cn("text-base font-semibold tabular-nums", getOvrValueClass(row.overallScore))}>
                           {row.overallScore != null
                             ? `${row.overallScore.toFixed(0)}%`
                             : "-"}
@@ -1750,7 +1794,7 @@ const BatterTab = ({
                               className="px-3 py-2.5 text-center"
                               style={getCellBackgroundStyle(usage, "usage")}
                             >
-                              <span className={cn("font-medium tabular-nums", getUsageValueClass(usage))}>
+                              <span className={cn("text-xs font-medium tabular-nums", getUsageValueClass(usage))}>
                                 {usage != null ? `${(usage * 100).toFixed(0)}%` : "—"}
                               </span>
                             </td>
@@ -1758,7 +1802,7 @@ const BatterTab = ({
                               className="px-3 py-2.5 text-center"
                               style={getCellBackgroundStyle(rating, "percent")}
                             >
-                              <span className={cn("font-medium tabular-nums", getPitchValueClass(rating))}>
+                              <span className={cn("text-xs font-medium tabular-nums", getPitchValueClass(rating))}>
                                 {rating != null ? `${rating.toFixed(0)}%` : "—"}
                               </span>
                             </td>
@@ -1766,7 +1810,7 @@ const BatterTab = ({
                               className="px-3 py-2.5 text-center"
                               style={getCellBackgroundStyle(rating, "percent")}
                             >
-                              <span className={cn("font-medium tabular-nums", getPitchValueClass(rating))}>
+                              <span className={cn("text-xs font-medium tabular-nums", getPitchValueClass(rating))}>
                                 {rating != null ? `${rating.toFixed(0)}%` : "—"}
                               </span>
                             </td>

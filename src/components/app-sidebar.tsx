@@ -193,19 +193,14 @@ const mlbTools: NavItem[] = [
     icon: Target,
   },
   {
-    title: "Pitcher Report",
-    url: "/mlb/tools/pitcher-report",
-    icon: Shield,
-  },
-  {
     title: "Batter vs Pitcher",
-    url: "/mlb/tools/player-vs-opp",
+    url: "/mlb/batter-vs-pitcher",
     icon: Target,
   },
   {
-    title: "Batter vs Opp",
-    url: "/mlb/tools/batter-vs-opp",
-    icon: Users,
+    title: "Pitcher Report",
+    url: "/mlb/tools/pitcher-report",
+    icon: Shield,
   },
   {
     title: "Batter Stats",

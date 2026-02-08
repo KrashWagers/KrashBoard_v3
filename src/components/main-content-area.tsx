@@ -13,11 +13,13 @@ import { ErrorBoundary } from "@/components/error-boundary"
 export function MainContentArea({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isPitchMatrix = pathname?.includes("/pitch-matrix") ?? false
+  const isBatterVsPitcher = pathname?.includes("/batter-vs-pitcher") ?? false
+  const noPageScroll = isPitchMatrix || isBatterVsPitcher
 
   return (
     <div
       className={`flex-1 min-w-0 min-h-0 overflow-x-hidden ${
-        isPitchMatrix ? "overflow-hidden p-0" : "overflow-y-auto p-4"
+        noPageScroll ? "flex flex-col overflow-hidden p-4" : "overflow-y-auto p-4"
       }`}
     >
       <ErrorBoundary>{children}</ErrorBoundary>
